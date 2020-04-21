@@ -1,79 +1,43 @@
 #!/bin/bash
+shopt -s extglob nullglob
+
 sourcesDir="/etc/apt/sources.list.d"
 
-rm /etc/apt/sources.list.d/sileo.list 2> /dev/null || true
-touch $sourcesDir/sileo.sources
+function ensureRepo() {
+        REPO="$1"
+        SUITES="$2"
+        COMPONENTS="$3"
+        REPONAME="$4"
+        SOURCEFILE="$5"
+        SOURCESPATH="$(dirname "${SOURCEFILE}")"
+        if ( [ -z "$(echo "${SOURCESPATH}"/*.sources)" ] || ! grep -Fxq "URIs: ${REPO}" "${SOURCESPATH}"/*.sources ) && [ -n "$(echo "${SOURCESPATH}"/*.list)" ] && ! grep -q "^deb ${REPO} " "${SOURCESPATH}"/*.list ; then
+                echo "Installing ${REPONAME} Repo"
+                if [[ ! -s "${SOURCEFILE}" ]]; then
+                        echo > "${SOURCEFILE}"
+                fi
+        sed -i.bak "1i\\
+Types: deb\\
+URIs: ${REPO}\\
+Suites: ${SUITES}\\
+Components: ${COMPONENTS}\\
+" "${SOURCEFILE}"
+        fi
+}
 
-cr="\n"
-
-if ! [ -s $sourcesDir/sileo.sources ]; then
-        echo -e "" > $sourcesDir/sileo.sources
-fi
-
-if ! grep -Fxq "URIs: https://repounclutter.coolstar.org/" $sourcesDir/sileo.sources ;
-then
-        echo "Installed ModMyTTD+ Repo"
-        sed -i.bak '1s;^;Types: deb\
-URIs: https://repounclutter.coolstar.org/\
-Suites: ./\
-Components:\
-\
-;' $sourcesDir/sileo.sources
-fi
-
-if ! grep -Fxq "URIs: https://repo.chariz.com/" $sourcesDir/sileo.sources ;
-then
-        echo "Installed Chariz Repo"
-        sed -i.bak '1s;^;Types: deb\
-URIs: https://repo.chariz.com/\
-Suites: ./\
-Components:\
-\
-;' $sourcesDir/sileo.sources
-fi
-
-if ! grep -Fxq "URIs: https://repo.dynastic.co/" $sourcesDir/sileo.sources ;
-then
-        echo "Installed Dynastic Repo"
-        sed -i.bak '1s;^;Types: deb\
-URIs: https://repo.dynastic.co/\
-Suites: ./\
-Components:\
-\
-;' $sourcesDir/sileo.sources
-fi
-
-if ! grep -Fxq "URIs: https://repo.packix.com/" $sourcesDir/sileo.sources ;
-then
-        echo "Installed Packix Repo"
-        sed -i.bak '1s;^;Types: deb\
-URIs: https://repo.packix.com/\
-Suites: ./\
-Components:\
-\
-;' $sourcesDir/sileo.sources
-fi
-
-if ! grep -Fxq "URIs: http://apt.thebigboss.org/repofiles/cydia/" $sourcesDir/sileo.sources ;
-then
-        echo "Installed BigBoss Repo"
-        sed -i.bak '1s;^;Types: deb\
-URIs: http://apt.thebigboss.org/repofiles/cydia/\
-Suites: stable\
-Components: main\
-\
-;' $sourcesDir/sileo.sources
-fi
- 
-rm -f $sourcesDir/sileo.sources.bak 2> /dev/null || true
-rm -f $sourcesDir/sileo-base.sources.bak 2> /dev/null || true
+function ensurePlainRepo() {
+        ensureRepo "$1" "./" "" "$2" "$3"
+}
 
 function finish() {
         f="${1}"
 
         # No control fd: bail out
-        [[ -z "${f}" || -z "${SILEO}" ]] && return
-        sileo=(${SILEO})
+        [[ -z "${f}" || -z "${SILEO}" && -z "${CYDIA}" ]] && return
+        if [[ -n "${SILEO}" ]]; then
+                sileo=(${SILEO})
+        else
+                sileo=(${CYDIA})
+        fi
 
         # Sileo control fd version < 1: bail out
         [[ ${sileo[1]} -ge 1 ]] || return
@@ -81,9 +45,51 @@ function finish() {
         echo "finish:${f}" >&${sileo[0]}
 }
 
+rm /etc/apt/sources.list.d/sileo.list 2> /dev/null || true
+touch $sourcesDir/sileo.sources
+
+cr="\n"
+
+if ! [ -s $sourcesDir/sileo.sources ]; then
+	echo '' > $sourcesDir/sileo.sources
+fi
+
+if grep -Fxq "URIs: https://repounclutter.coolstar.org/" $sourcesDir/sileo.sources ;
+then
+	echo "Replaced BigBoss+ Repo with valid BigBoss repo"
+	sed  '1{h;$!d} ; 1!{/./{H;$!d}}; x ; s;Types: deb\
+URIs: https://repounclutter.coolstar.org/\
+Suites: ./\
+Components:.*;Types: deb\
+URIs: http://apt.thebigboss.org/repofiles/cydia/\
+Suites: stable\
+Components: main;' $sourcesDir/sileo.sources
+fi
+
+if [ -f "/etc/apt/preferences.d/odyssey" ]; then
+    rm "/etc/apt/preferences.d/odyssey"
+fi
+
+if [ -f "/etc/apt/preferences.d/chimera" ]; then
+    rm "/etc/apt/preferences.d/chimera"
+fi
+
+ensureRepo http://apt.thebigboss.org/repofiles/cydia/ stable main BigBoss $sourcesDir/sileo.sources
+ensurePlainRepo https://repo.chariz.com/ Chariz $sourcesDir/sileo.sources
+ensurePlainRepo https://repo.dynastic.co/ Dynastic $sourcesDir/sileo.sources
+
+if [ ! -f /etc/apt/sources.list.d/chimera.sources ] && [ ! -f /etc/apt/sources.list.d/electra.list ]; then
+        ensurePlainRepo https://test.apt.bingner.com/ Elucubratus $sourcesDir/sileo-base.sources
+fi
+
+rm -f $sourcesDir/sileo.sources.bak 2> /dev/null || true
+rm -f $sourcesDir/sileo-base.sources.bak 2> /dev/null || true
+
 finish uicache
 
-if [[ -z ${SILEO} ]]; then echo "Not running in Sileo. Trigger UICache"; fi
-if [[ -z ${SILEO} ]]; then uicache -p /Applications/Sileo.app; fi
+if [[ -z ${SILEO} && -z ${CYDIA} ]]; then
+        echo "Not running in Package Manager. Trigger UICache"
+        uicache -p /Applications/Sileo.app
+fi
 
 exit 0
