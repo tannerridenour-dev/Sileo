@@ -49,7 +49,7 @@ class APTWrapper {
     static let digests: [Digest] = [
         Digest(state: .untrusted, name: "Invalid Digest"),
         Digest(state: .untrusted, name: "MD5"),
-        Digest(state: .untrusted, name: "SHA1"),
+        Digest(state: .weak, name: "SHA1"),
         Digest(state: .untrusted, name: "RIPE-MD/160"),
         Digest(state: .untrusted, name: "Reserved digest"),
         Digest(state: .untrusted, name: "Reserved digest"),
@@ -312,7 +312,7 @@ class APTWrapper {
                 }
                 
                 let digest = digests[digestIdx]
-                if digest.state == .trusted {
+                if digest.state == .trusted || digest.state == .weak {
                     keyIsTrusted = true
                 }
             }
