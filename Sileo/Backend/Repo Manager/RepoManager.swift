@@ -99,9 +99,7 @@ final class RepoManager {
         } else {
             addRepos(with: [
                 "https://repo.chariz.com/",
-                "https://repo.dynastic.co/",
-                "https://repo.packix.com/",
-                "https://repounclutter.coolstar.org/"
+                "https://repo.dynastic.co/"
             ].compactMap(URL.init(string:)))
 
             let bigBoss = Repo()
@@ -140,7 +138,8 @@ final class RepoManager {
     func addRepos(with urls: [URL]) {
         for url in urls {
             guard !hasRepo(with: url),
-                url.host?.localizedCaseInsensitiveContains("apt.bingner.com") == false,
+                url.host?.localizedCaseInsensitiveContains("electrarepo64.coolstar.org") == false,
+                url.host?.localizedCaseInsensitiveContains("repo.chimera.sh") == false,
                 url.host?.localizedCaseInsensitiveContains("repo.chariz.io") == false else { continue }
 
             repoListLock.wait()
@@ -190,9 +189,6 @@ final class RepoManager {
         guard types.contains("deb") else { return }
 
         for repoURL in uris {
-            guard !repoURL.localizedCaseInsensitiveContains("apt.bingner.com") else {
-                continue
-            }
             guard !repoURL.localizedCaseInsensitiveContains("repo.chariz.io"),
                 !hasRepo(with: URL(string: repoURL)!)
                 else { continue }

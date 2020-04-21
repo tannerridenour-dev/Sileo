@@ -65,18 +65,6 @@ Components: main\
 ;' $sourcesDir/sileo.sources
 fi
  
-echo "Package: *" > /etc/apt/preferences.d/odyssey
-echo "Pin: release n=odyssey-ios" >> /etc/apt/preferences.d/odyssey
-echo "Pin-Priority: 1001" >> /etc/apt/preferences.d/odyssey
-
-echo "Package: *" > /etc/apt/preferences.d/chimera
-echo "Pin: release o=Chimera Repo" >> /etc/apt/preferences.d/chimera
-echo "Pin-Priority: 1000" >> /etc/apt/preferences.d/chimera
-
-# Kill bingner repo with fire
-rm -f /etc/apt/preferences.d/checkra1n 2> /dev/null || true
-ln -s /dev/null /etc/apt/preferences.d/checkra1n
-
 rm -f $sourcesDir/sileo.sources.bak 2> /dev/null || true
 rm -f $sourcesDir/sileo-base.sources.bak 2> /dev/null || true
 
