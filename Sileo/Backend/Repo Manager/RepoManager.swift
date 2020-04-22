@@ -136,7 +136,11 @@ final class RepoManager {
     }
 
     func addRepos(with urls: [URL]) {
-        for url in urls {
+        for var url in urls {
+            if !url.absoluteString.hasSuffix("/") {
+                url = url.appendingPathComponent("/")
+            }
+
             guard !hasRepo(with: url),
                 url.host?.localizedCaseInsensitiveContains("electrarepo64.coolstar.org") == false,
                 url.host?.localizedCaseInsensitiveContains("repo.chimera.sh") == false,
