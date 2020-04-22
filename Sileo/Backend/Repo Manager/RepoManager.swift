@@ -118,14 +118,9 @@ final class RepoManager {
             writeListToFile()
         }
         #else
-        var sourcesDir: URL!
-        if FileManager.default.fileExists(atPath: "/etc/apt/sources.list.d/procursus.sources") ||
-            FileManager.default.fileExists(atPath: "/etc/apt/sources.list.d/chimera.sources") ||
-            FileManager.default.fileExists(atPath: "/etc/apt/sources.list.d/electra.list") {
-            sourcesDir = URL(string: "/etc/apt/sources.list.d") } else {
-                sourcesDir = URL(string: "/etc/apt/sileo.list.d")
-        }
-        for file in sourcesDir.implicitContents {
+        let sourcesDir = URL(string: "/etc/apt/sources.list.d")
+
+        for file in sourcesDir!.implicitContents {
             if file.pathExtension == "list" {
                 parseListFile(at: file)
             } else {
@@ -145,7 +140,7 @@ final class RepoManager {
                 url.host?.localizedCaseInsensitiveContains("electrarepo64.coolstar.org") == false,
                 url.host?.localizedCaseInsensitiveContains("repo.chimera.sh") == false,
                 url.host?.localizedCaseInsensitiveContains("repo.chariz.io") == false else { continue }
-
+            
             repoListLock.wait()
             let repo = Repo()
             repo.rawURL = url.absoluteString
@@ -213,7 +208,6 @@ final class RepoManager {
     }
 
     private func parseListFile(at url: URL) {
-        guard url.lastPathComponent != "cydia.list" else { return }
         guard let rawList = try? String(contentsOf: url) else { return }
         let repoEntries = rawList.components(separatedBy: "\n")
         for repoEntry in repoEntries {
@@ -868,13 +862,7 @@ final class RepoManager {
         #if targetEnvironment(simulator) || TARGET_SANDBOX
         try? rawRepoList.write(to: sourcesURL, atomically: true, encoding: .utf8)
         #else
-        var sileoList = ""
-        if FileManager.default.fileExists(atPath: "/etc/apt/sources.list.d/procursus.sources") ||
-            FileManager.default.fileExists(atPath: "/etc/apt/sources.list.d/chimera.sources") ||
-            FileManager.default.fileExists(atPath: "/etc/apt/sources.list.d/electra.list") {
-            sileoList = "/etc/apt/sources.list.d/sileo.sources" } else {
-                sileoList = "/etc/apt/sileo.list.d/sileo.sources"
-        }
+        var sileoList = "/etc/apt/sources.list.d/sileo.sources"
         let tempPath = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         do {
             try rawRepoList.write(to: tempPath, atomically: true, encoding: .utf8)
