@@ -7,8 +7,12 @@ function finish() {
 	f="${1}"
 
 	# No control fd: bail out
-	[[ -z "${f}" || -z "${SILEO}" ]] && return
-	sileo=(${SILEO})
+	[[ -z "${f}" || -z "${SILEO}" && -z "${CYDIA}" ]] && return
+	if [[ -n "${SILEO}" ]]; then
+		sileo=(${SILEO})
+	else
+		sileo=(${CYDIA})
+	fi
 
 	# Sileo control fd version < 1: bail out
 	[[ ${sileo[1]} -ge 1 ]] || return
