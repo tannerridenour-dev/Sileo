@@ -67,12 +67,29 @@ function finish() {
 rm /etc/apt/sources.list.d/sileo.list 2> /dev/null || true
 touch $sourcesDir/sileo.sources
 
-ensurePlainRepo https://repounclutter.coolstar.org/ BigBoss+ $sourcesDir/sileo.sources
+cr="\n"
+
+if ! [ -s $sourcesDir/sileo.sources ]; then
+	echo '' > $sourcesDir/sileo.sources
+fi
+
+if grep -Fxq "URIs: https://repounclutter.coolstar.org/" $sourcesDir/sileo.sources ;
+then
+	echo "Replaced BigBoss+ Repo with valid BigBoss repo"
+	sed  '1{h;$!d} ; 1!{/./{H;$!d}}; x ; s;Types: deb\
+URIs: https://repounclutter.coolstar.org/\
+Suites: ./\
+Components:.*;Types: deb\
+URIs: http://apt.thebigboss.org/repofiles/cydia/\
+Suites: stable\
+Components: main;' $sourcesDir/sileo.sources
+fi
+
+ensureRepo http://apt.thebigboss.org/repofiles/cydia/ stable main BigBoss $sourcesDir/sileo.sources
 ensurePlainRepo https://repo.chariz.com/ Chariz $sourcesDir/sileo.sources
 ensurePlainRepo https://repo.dynastic.co/ Dynastic $sourcesDir/sileo.sources
 
 if [ ! -f /etc/apt/sources.list.d/chimera.sources ] && [ ! -f /etc/apt/sources.list.d/electra.list ]; then
-        ensurePlainRepo https://repo.getsileo.app/ GetSileo $sourcesDir/sileo-base.sources
         ensurePlainRepo https://test.apt.bingner.com/ Elucubratus $sourcesDir/sileo-base.sources
 fi
 
