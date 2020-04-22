@@ -1,27 +1,7 @@
 #!/bin/bash
+shopt -s extglob nullglob
 
-if [ ! -f /etc/apt/sources.list.d/chimera.sources ] && [ ! -f /etc/apt/sources.list.d/electra.list ]; then
-        sourcesDir="/etc/apt/sileo.list.d"
-        mkdir -p $sourcesDir
-        if [ -s /etc/apt/sources.list.d/sileo.sources ]; then
-                mv /etc/apt/sources.list.d/sileo.sources $sourcesDir
-                rm -f /etc/apt/sources.list.d/sileo-base.sources
-        fi
-
-        if ! grep -Fxq "Dir::Etc" /Applications/Sileo.app/sileo-apt.conf ;
-then
-        sed -i.bak '1s;^;Dir::Etc\
-{\
-        sourceparts "sileo.list.d/"\
-}\
-\
-;' /Applications/Sileo.app/sileo-apt.conf
-fi
-rm -f /Applications/Sileo.app/sileo-apt.conf.bak 2> /dev/null || true
-
-else
-        sourcesDir="/etc/apt/sources.list.d"
-fi
+sourcesDir="/etc/apt/sources.list.d"
 
 function ensureRepo() {
         REPO="$1"
@@ -29,11 +9,12 @@ function ensureRepo() {
         COMPONENTS="$3"
         REPONAME="$4"
         SOURCEFILE="$5"
-        if [[ ! -s "${SOURCEFILE}" ]]; then
-                echo > "${SOURCEFILE}"
-        fi
-        if ! grep -Fxq "URIs: ${REPO}" "${SOURCEFILE}"; then
+        SOURCESPATH="$(dirname "${SOURCEFILE}")"
+        if ( [ -z "$(echo "${SOURCESPATH}"/*.sources)" ] || ! grep -Fxq "URIs: ${REPO}" "${SOURCESPATH}"/*.sources ) && [ -n "$(echo "${SOURCESPATH}"/*.list)" ] && ! grep -q "^deb ${REPO} " "${SOURCESPATH}"/*.list ; then
                 echo "Installing ${REPONAME} Repo"
+                if [[ ! -s "${SOURCEFILE}" ]]; then
+                        echo > "${SOURCEFILE}"
+                fi
         sed -i.bak "1i\\
 Types: deb\\
 URIs: ${REPO}\\
