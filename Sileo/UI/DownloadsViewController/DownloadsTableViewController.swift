@@ -8,7 +8,7 @@
 
 import Foundation
 
-class DownloadsTableViewController: UIViewController {
+class DownloadsTableViewController: SileoViewController {
     @IBOutlet var footerView: UIView?
     @IBOutlet var cancelButton: UIButton?
     @IBOutlet var confirmButton: UIButton?
@@ -31,6 +31,8 @@ class DownloadsTableViewController: UIViewController {
         let statusBarView = SileoRootView(frame: .zero)
         self.view.addSubview(statusBarView)
         self.statusBarView = statusBarView
+        
+        self.statusBarStyle = UIDevice.current.userInterfaceIdiom == .pad ? .default : .lightContent
         
         self.tableView?.separatorStyle = .none
         self.tableView?.separatorColor = UIColor(red: 234/255, green: 234/255, blue: 236/255, alpha: 1)

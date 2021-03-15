@@ -6,7 +6,6 @@
 //  Copyright © 2019 CoolStar. All rights reserved.
 //
 
-@objc(FeaturedBannersView)
 class FeaturedBannersView: FeaturedBaseView, FeaturedBannerViewPreview {
     var scrollView: UIScrollView?
     let stackView = UIStackView()
@@ -15,7 +14,7 @@ class FeaturedBannersView: FeaturedBaseView, FeaturedBannerViewPreview {
     
     let bannerViews: [FeaturedBannerView] = []
     
-    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor) {
+    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor, isActionable: Bool) {
         var dictionary = dictionary
         
         let deviceName = UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "iphone"
@@ -41,7 +40,7 @@ class FeaturedBannersView: FeaturedBaseView, FeaturedBannerViewPreview {
             return nil
         }
         
-        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor)
+        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isActionable: isActionable)
     
         let scrollView = UIScrollView(frame: self.bounds)
         scrollView.autoresizingMask = [.flexibleHeight, .flexibleWidth]

@@ -9,14 +9,13 @@
 
 import Foundation
 
-@objc(FeaturedStackView)
 class FeaturedStackView: FeaturedBaseView {
     private var views: [DepictionBaseView] = []
     private var isLandscape: Bool = false
     
     private var xPadding = CGFloat(0)
     
-    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor) {
+    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor, isActionable: Bool) {
         guard let views = dictionary["views"] as? [[String: Any]] else {
             return nil
         }
@@ -35,9 +34,9 @@ class FeaturedStackView: FeaturedBaseView {
             }
         }
         
-        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor)
+        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isActionable: isActionable)
         for viewDict in views {
-            if let view = FeaturedBaseView.view(dictionary: viewDict, viewController: viewController, tintColor: tintColor) {
+            if let view = FeaturedBaseView.view(dictionary: viewDict, viewController: viewController, tintColor: tintColor, isActionable: true) {
                 self.views.append(view)
                 addSubview(view)
             }
@@ -101,6 +100,16 @@ class FeaturedStackView: FeaturedBaseView {
                 view.frame = CGRect(x: xPadding, y: y, width: width, height: view.depictionHeight(width: width))
                 view.layoutSubviews()
                 y += view.frame.height
+            }
+        }
+    }
+    
+    override var isHighlighted: Bool {
+        didSet {
+            if isActionable {
+                for view in views {
+                    view.isHighlighted = self.isHighlighted
+                }
             }
         }
     }

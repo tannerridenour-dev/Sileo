@@ -8,7 +8,11 @@
 
 import Foundation
 
-class PackageQueueButton: PackageButton {
+protocol PackageQueueButtonDataProvider {
+    func updatePurchaseStatus()
+}
+
+class PackageQueueButton: PackageButton, DFContinuousForceTouchDelegate {
     public var viewControllerForPresentation: UIViewController?
     public var package: Package? {
         didSet {
@@ -16,11 +20,34 @@ class PackageQueueButton: PackageButton {
             self.updateInfo()
         }
     }
+    
+    private var _paymentInfo: PaymentPackageInfo?
+    public var paymentInfo: PaymentPackageInfo? {
+        get {
+            _paymentInfo
+        }
+        set {
+            _paymentInfo = shouldCheckPurchaseStatus ? newValue : nil
+            self.updateInfo()
+        }
+    }
+    
+    public var dataProvider: PackageQueueButtonDataProvider? {
+        didSet {
+            self.updatePurchaseStatus()
+        }
+    }
+    
     public var overrideTitle: String = ""
+    public var shouldCheckPurchaseStatus = false
+    
+    private var purchased = false
     private var installedPackage: Package?
     
     override func setup() {
         super.setup()
+        
+        shouldCheckPurchaseStatus = true
         
         self.updateButton(title: "Get")
         self.addTarget(self, action: #selector(PackageQueueButton.buttonTapped(_:)), for: .touchUpInside)
@@ -32,6 +59,11 @@ class PackageQueueButton: PackageButton {
                                                selector: #selector(PackageQueueButton.updateInfo),
                                                name: DownloadManager.lockStateChangeNotification,
                                                object: nil)
+        
+        let forceTouchGesture = DFContinuousForceTouchGestureRecognizer()
+        forceTouchGesture.forceTouchDelegate = self
+        forceTouchGesture.baseForceTouchPressure = 4
+        self.addGestureRecognizer(forceTouchGesture)
         
         let longPressGesture = UILongPressGestureRecognizer(target: self, action: #selector(PackageQueueButton.handleBtnLongPressGesture(_:)))
         self.addGestureRecognizer(longPressGesture)
@@ -45,9 +77,13 @@ class PackageQueueButton: PackageButton {
         }
     }
     
+    func forceTouchRecognized(_ recognizer: DFContinuousForceTouchGestureRecognizer!) {
+        self.showDowngradePrompt(recognizer)
+    }
+    
     func showDowngradePrompt(_ sender: Any?) {
         guard let package = package,
-            !package.commercial else {
+            (!package.commercial || purchased) else {
             return
         }
         let downgradePrompt = UIAlertController(title: String(localizationKey: "Select Version"),
@@ -67,7 +103,7 @@ class PackageQueueButton: PackageButton {
                     let downloadManager = DownloadManager.shared
                     let queueFound = downloadManager.find(package: package)
                     if queueFound != .none {
-                        //but it's a already queued! user changed his mind about installing this new package => nuke it from the queue
+                        // but it's a already queued! user changed his mind about installing this new package => nuke it from the queue
                         downloadManager.remove(package: package, queue: queueFound)
                     }
 
@@ -96,6 +132,8 @@ class PackageQueueButton: PackageButton {
         }
         installedPackage = PackageListManager.shared.installedPackage(identifier: package.package)
             
+        purchased = paymentInfo?.purchased ?? false
+        
         let queueFound = DownloadManager.shared.find(package: package)
         var prominent = false
         if !overrideTitle.isEmpty {
@@ -104,6 +142,9 @@ class PackageQueueButton: PackageButton {
             self.updateButton(title: String(localizationKey: "Package_Queue_Action"))
         } else if installedPackage != nil {
             self.updateButton(title: String(localizationKey: "Package_Modify_Action"))
+        } else if let price = paymentInfo?.price,
+            package.commercial && !purchased {
+            self.updateButton(title: price)
         } else {
             self.updateButton(title: String(localizationKey: "Package_Get_Action"))
             prominent = true
@@ -114,36 +155,43 @@ class PackageQueueButton: PackageButton {
     }
     
     func updatePurchaseStatus() {
-        if !(package?.commercial ?? false) {
-            return
+        guard let dataProvider = dataProvider,
+            shouldCheckPurchaseStatus,
+            package?.commercial ?? false,
+            !(package?.package.contains("/") ?? false) else {
+                return
         }
-        self.isEnabled = false
+        DispatchQueue.main.async {
+            self.isEnabled = false
+            dataProvider.updatePurchaseStatus()
+        }
     }
     
     func updateButton(title: String) {
         self.setTitle(title.uppercased(), for: .normal)
     }
     
-    func previewActionItems() -> [UIPreviewAction] {
+    func actionItems() -> [CSActionItem] {
         guard let package = self.package else {
                 return []
         }
-        var actionItems: [UIPreviewAction] = []
+        var actionItems: [CSActionItem] = []
 
         let downloadManager = DownloadManager.shared
 
         let queueFound = downloadManager.find(package: package)
         if let installedPackage = installedPackage {
-            if package.commercial {
+            if !package.commercial || (paymentInfo?.available ?? false) {
                 var repo: Repo?
-                for repoEntry in RepoManager.shared.repoList {
-                    if repoEntry.rawEntry == package.sourceFile {
-                        repo = repoEntry
-                    }
+                for repoEntry in RepoManager.shared.repoList where
+                    repoEntry.rawEntry == package.sourceFile {
+                    repo = repoEntry
                  }
                 if package.filename != nil && repo != nil {
                     if DpkgWrapper.isVersion(package.version, greaterThan: installedPackage.version) {
-                        let action = UIPreviewAction(title: String(localizationKey: "Package_Upgrade_Action"), style: .default) { _, _  in
+                        let action = CSActionItem(title: String(localizationKey: "Package_Upgrade_Action"),
+                                                  image: UIImage(systemNameOrNil: "icloud.and.arrow.down"),
+                                                  style: .default) {
                             if queueFound != .none {
                                 downloadManager.remove(package: package, queue: queueFound)
                             }
@@ -153,7 +201,9 @@ class PackageQueueButton: PackageButton {
                         }
                         actionItems.append(action)
                     } else if package.version == installedPackage.version {
-                        let action = UIPreviewAction(title: String(localizationKey: "Package_Reinstall_Action"), style: .default) { _, _  in
+                        let action = CSActionItem(title: String(localizationKey: "Package_Reinstall_Action"),
+                                                  image: UIImage(systemNameOrNil: "arrow.clockwise.circle"),
+                                                  style: .default) {
                             if queueFound != .none {
                                 downloadManager.remove(package: package, queue: queueFound)
                             }
@@ -164,17 +214,39 @@ class PackageQueueButton: PackageButton {
                         actionItems.append(action)
                     }
                 }
-                let action = UIPreviewAction(title: String(localizationKey: "Package_Uninstall_Action"), style: .default) { _, _  in
-                    downloadManager.add(package: package, queue: .uninstallations)
-                    downloadManager.reloadData(recheckPackages: true)
+            }
+            let action = CSActionItem(title: String(localizationKey: "Package_Uninstall_Action"),
+                                      image: UIImage(systemNameOrNil: "trash.circle"),
+                                      style: .destructive) {
+                downloadManager.add(package: package, queue: .uninstallations)
+                downloadManager.reloadData(recheckPackages: true)
+            }
+            actionItems.append(action)
+        } else {
+            // here's new packages not yet queued
+            if let repo = package.sourceRepo,
+                package.commercial && !purchased {
+                let buttonText = paymentInfo?.price ?? String(localizationKey: "Package_Get_Action")
+                let action = CSActionItem(title: buttonText,
+                                          image: UIImage(systemNameOrNil: "dollarsign.circle"),
+                                          style: .default) {
+                    PaymentManager.shared.getPaymentProvider(for: repo) { error, provider in
+                        guard let provider = provider,
+                            error == nil else {
+                                return
+                        }
+                        if provider.isAuthenticated {
+                            self.initatePurchase(provider: provider)
+                        } else {
+                            self.authenticate(provider: provider)
+                        }
+                    }
                 }
                 actionItems.append(action)
-            }
-        } else {
-            //here's new packages not yet queued
-            if package.commercial {
             } else {
-                let action = UIPreviewAction(title: String(localizationKey: "Package_Get_Action"), style: .default) { _, _  in
+                let action = CSActionItem(title: String(localizationKey: "Package_Get_Action"),
+                                          image: UIImage(systemNameOrNil: "square.and.arrow.down"),
+                                          style: .default) {
                     //here's new packages not yet queued & FREE
                     downloadManager.add(package: package, queue: .installations)
                     downloadManager.reloadData(recheckPackages: true)
@@ -199,12 +271,11 @@ class PackageQueueButton: PackageButton {
         } else if let installedPackage = installedPackage {
             //road clear to modify an installed package, now we gotta decide what modification
             let downloadPopup: UIAlertController! = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
-            if !package.commercial {
+            if !package.commercial || (paymentInfo?.available ?? false) {
                 var repo: Repo?
-                for repoEntry in RepoManager.shared.repoList {
-                    if repoEntry.rawEntry == package.sourceFile {
-                        repo = repoEntry
-                    }
+                for repoEntry in RepoManager.shared.repoList where
+                    repoEntry.rawEntry == package.sourceFile {
+                    repo = repoEntry
                  }
                 if package.filename != nil && repo != nil {
                     if DpkgWrapper.isVersion(package.version, greaterThan: installedPackage.version) {
@@ -246,12 +317,78 @@ class PackageQueueButton: PackageButton {
             })
         } else {
             //here's new packages not yet queued
-            if package.commercial  && !package.package.contains("/") {
+            if let repo = package.sourceRepo,
+                package.commercial && !purchased && !package.package.contains("/") {
+                PaymentManager.shared.getPaymentProvider(for: repo) { error, provider in
+                    guard let provider = provider,
+                        error == nil else {
+                            return
+                    }
+                    if provider.isAuthenticated {
+                        self.initatePurchase(provider: provider)
+                    } else {
+                        self.authenticate(provider: provider)
+                    }
+                }
             } else {
-                //here's new packages not yet queued & FREE
+                // here's new packages not yet queued & FREE
                 downloadManager.add(package: package, queue: .installations)
                 downloadManager.reloadData(recheckPackages: true)
             }
+        }
+    }
+    
+    private func initatePurchase(provider: PaymentProvider) {
+        guard let package = package else {
+            return
+        }
+        provider.initiatePurchase(forPackageIdentifier: package.package) { error, status, actionURL in
+            if status == .cancel { return }
+            guard !(error?.shouldInvalidate ?? false) else {
+                return self.authenticate(provider: provider)
+            }
+            if error != nil || status == .failed {
+                self.presentAlert(paymentError: error,
+                                  title: String(localizationKey: "Purchase_Initiate_Fail.Title",
+                                                type: .error))
+            }
+            guard let actionURL = actionURL,
+                status != .immediateSuccess else {
+                    return self.updatePurchaseStatus()
+            }
+            DispatchQueue.main.async {
+                PaymentAuthenticator.shared.handlePayment(actionURL: actionURL,
+                                                          provider: provider, window: self.window) { error, success in
+                                                            if error != nil {
+                                                                return self.presentAlert(paymentError: error,
+                                                                                         title: String(localizationKey: "Purchase_Complete_Fail.Title", type: .error))
+                                                            }
+                                                            if success {
+                                                                self.updatePurchaseStatus()
+                                                            }
+                                                                        
+                }
+            }
+        }
+    }
+    
+    private func authenticate(provider: PaymentProvider) {
+        PaymentAuthenticator.shared.authenticate(provider: provider, window: self.window) { error, success in
+            if error != nil {
+                return self.presentAlert(paymentError: error, title: String(localizationKey: "Purchase_Auth_Complete_Fail.Title",
+                                                                            type: .error))
+            }
+            if success {
+                self.updatePurchaseStatus()
+            }
+        }
+    }
+    
+    private func presentAlert(paymentError: PaymentError?, title: String) {
+        DispatchQueue.main.async {
+            self.viewControllerForPresentation?.present(PaymentError.alert(for: paymentError, title: title),
+                                                        animated: true,
+                                                        completion: nil)
         }
     }
 }

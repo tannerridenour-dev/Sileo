@@ -24,6 +24,7 @@ enum LocalizedStringType {
 extension String {
     /// Creates a localized string from the provided key.
     init(localizationKey: String, type: LocalizedStringType = .general) {
+        // swiftlint:disable:next nslocalizedstring_key
         self = NSLocalizedString(localizationKey, tableName: type.tableName, comment: "")
     }
 }

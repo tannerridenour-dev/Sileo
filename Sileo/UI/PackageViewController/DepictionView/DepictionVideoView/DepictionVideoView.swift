@@ -9,7 +9,6 @@
 import Foundation
 import AVKit
 
-@objc(DepictionVideoView)
 class DepictionVideoView: DepictionBaseView {
     let alignment: Int
 
@@ -26,7 +25,7 @@ class DepictionVideoView: DepictionBaseView {
     var showPlaybackControls: Bool = false
     var loopEnabled: Bool = false
 
-    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor) {
+    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor, isActionable: Bool) {
         guard let urlStr = dictionary["URL"] as? String else {
             return nil
         }
@@ -53,12 +52,12 @@ class DepictionVideoView: DepictionBaseView {
             return nil
         }
 
-        var repoWhitelisted = false
+        var repoAllowed = false
         if depictionHost == "repo.chariz.com" {
-            repoWhitelisted = true
+            repoAllowed = true
         }
         if depictionHost == "repo.dynastic.co" {
-            repoWhitelisted = true
+            repoAllowed = true
         }
 
         guard let videoURL = URL(string: urlStr) else {
@@ -69,7 +68,7 @@ class DepictionVideoView: DepictionBaseView {
         showPlaybackControls = true
         loopEnabled = false
 
-        if repoWhitelisted {
+        if repoAllowed {
             autoPlayEnabled = (dictionary["autoplay"] as? Bool) ?? false
             if autoPlayEnabled {
                 showPlaybackControls = (dictionary["showPlaybackControls"] as? Bool) ?? false
@@ -77,7 +76,7 @@ class DepictionVideoView: DepictionBaseView {
             }
         }
 
-        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor)
+        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isActionable: isActionable)
 
         let cornerRadius = (dictionary["cornerRadius"] as? CGFloat) ?? 0
 

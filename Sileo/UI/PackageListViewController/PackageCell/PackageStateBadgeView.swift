@@ -8,7 +8,7 @@
 
 import Foundation
 
-public enum PackageBadgeState: Int {
+@objc public enum PackageBadgeState: Int {
     case installed
     case installQueued
     case updateQueued
@@ -16,8 +16,8 @@ public enum PackageBadgeState: Int {
     case deleteQueued
 }
 
-public class PackageStateBadgeView: UIView {
-    var state: PackageBadgeState = .installed {
+@objc public class PackageStateBadgeView: UIView {
+    @objc var state: PackageBadgeState = .installed {
         didSet {
             self.backgroundColor = self.backgroundColor(state: state)
             self.imageView.image = self.image(state: state)

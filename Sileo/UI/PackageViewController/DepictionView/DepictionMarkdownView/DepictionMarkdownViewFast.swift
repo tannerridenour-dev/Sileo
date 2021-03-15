@@ -8,7 +8,6 @@
 
 import Down
 
-@objc(DepictionMarkdownView)
 class DepictionMarkdownView: DepictionBaseView, CSTextViewActionHandler {
     var attributedString: NSAttributedString?
     var htmlString: String = ""
@@ -20,27 +19,9 @@ class DepictionMarkdownView: DepictionBaseView, CSTextViewActionHandler {
 
     let textView: CSTextView
 
-    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor) {
+    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor, isActionable: Bool) {
         guard let markdown = dictionary["markdown"] as? String else {
             return nil
-        }
-        
-        if let packageViewController = viewController as? PackageViewController,
-            let repo = packageViewController.package?.sourceRepo,
-            let host = repo.url?.host?.lowercased(),
-            host.contains("nepeta.me") {
-            let lowerMarkdown = markdown.lowercased()
-            let search1 = ["package", "apt", "repo"]
-            let search2 = ["manager", "browser", "downloader", "installer"]
-            guard search1.filter({ lowerMarkdown.contains($0) }).isEmpty || search2.filter({ lowerMarkdown.contains($0) }).isEmpty else {
-                return nil
-            }
-            
-            let search4 = ["link", "get", "download", "install", "view", "preview", "try"]
-            let search5 = ["zebra", "installer", "cydia", "manager"]
-            guard search4.filter({ lowerMarkdown.contains($0) }).isEmpty || search5.filter({ lowerMarkdown.contains($0) }).isEmpty else {
-                return nil
-            }
         }
         
         useSpacing = (dictionary["useSpacing"] as? Bool) ?? true
@@ -49,7 +30,7 @@ class DepictionMarkdownView: DepictionBaseView, CSTextViewActionHandler {
         heightRequested = false
 
         textView = CSTextView(frame: .zero)
-        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor)
+        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isActionable: isActionable)
 
         textView.backgroundColor = .clear
         addSubview(textView)
@@ -73,13 +54,11 @@ class DepictionMarkdownView: DepictionBaseView, CSTextViewActionHandler {
             textView.bottomAnchor.constraint(equalTo: self.bottomAnchor, constant: -bottomSpacing)
         ])
         
-        weak var weakSelf: DepictionMarkdownView? = self
-        if UIColor.useSileoColors {
-            NotificationCenter.default.addObserver(weakSelf as Any,
-                                                   selector: #selector(DepictionMarkdownView.reloadMarkdown),
-                                                   name: UIColor.sileoDarkModeNotification,
-                                                   object: nil)
-        }
+        weak var weakSelf = self
+        NotificationCenter.default.addObserver(weakSelf as Any,
+                                               selector: #selector(reloadMarkdown),
+                                               name: SileoThemeManager.sileoChangedThemeNotification,
+                                               object: nil)
     }
 
     required public init?(coder aDecoder: NSCoder) {

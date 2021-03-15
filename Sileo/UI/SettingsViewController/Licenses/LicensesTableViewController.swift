@@ -35,17 +35,14 @@ class LicensesTableViewController: UITableViewController {
         
         navigationItem.title = String(localizationKey: "Licenses_Page_Title")
         
-        if UIColor.useSileoColors {
-            self.tableView.separatorColor = .sileoSeparatorColor
-            self.tableView.backgroundColor = .sileoBackgroundColor
-            
-            weak var weakSelf: LicensesTableViewController? = self
-            
-            NotificationCenter.default.addObserver(weakSelf as Any,
-                                                   selector: #selector(LicensesTableViewController.updateSileoColors),
-                                                   name: UIColor.sileoDarkModeNotification,
-                                                   object: nil)
-        }
+        self.tableView.separatorColor = .sileoSeparatorColor
+        self.tableView.backgroundColor = .sileoBackgroundColor
+        
+        weak var weakSelf = self
+        NotificationCenter.default.addObserver(weakSelf as Any,
+                                               selector: #selector(updateSileoColors),
+                                               name: SileoThemeManager.sileoChangedThemeNotification,
+                                               object: nil)
     }
 }
 

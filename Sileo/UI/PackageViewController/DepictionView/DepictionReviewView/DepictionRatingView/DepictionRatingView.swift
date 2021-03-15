@@ -9,14 +9,13 @@
 import Foundation
 import Cosmos
 
-@objc(DepictionRatingView)
 class DepictionRatingView: DepictionBaseView {
     private var rating: CGFloat
     private var alignment: Int
 
     private var ratingView: CosmosView?
 
-    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor) {
+    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor, isActionable: Bool) {
         guard let rawRating = dictionary["rating"] as? CGFloat else {
             return nil
         }
@@ -25,7 +24,7 @@ class DepictionRatingView: DepictionBaseView {
             return nil
         }
         alignment = rawAlignment
-        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor)
+        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isActionable: isActionable)
 
         var settings = CosmosSettings()
         settings.fillMode = .precise
@@ -36,6 +35,7 @@ class DepictionRatingView: DepictionBaseView {
         settings.filledBorderColor = UIColor(white: 161.0/255.0, alpha: 1.0)
 
         ratingView = CosmosView(settings: settings)
+        ratingView?.rating = Double(rating)
         addSubview(ratingView!)
     }
 

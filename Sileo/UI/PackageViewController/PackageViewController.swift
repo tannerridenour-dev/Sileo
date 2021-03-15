@@ -12,12 +12,12 @@ import MessageUI
 
 import os.log
 
-class PackageViewController: UIViewController,
+class PackageViewController: SileoViewController, PackageQueueButtonDataProvider,
     UIScrollViewDelegate, DepictionViewDelegate, MFMailComposeViewControllerDelegate {
     public var package: Package?
     public var depictionHeight = CGFloat(0)
 
-    @objc public var isPresentedModally = false
+    public var isPresentedModally = false
     public var packageAdvertisementCount = Double(0)
 
     private weak var weakNavController: UINavigationController?
@@ -63,11 +63,15 @@ class PackageViewController: UIViewController,
 
     private var isUpdatingPurchaseStatus = false
 
-    private func parseNativeDepiction(_ data: Data, failureCallback: (() -> Void)?) {
+    private func isValidRootClass(className: String, host: String) -> Bool {
+        host == "repotest.shuga.co" || host == "repo.chariz.com" || host == "repo.dynastic.co" || className == "DepictionTabView" || host == "coolstar.moe"
+    }
+    
+    private func parseNativeDepiction(_ data: Data, host: String, failureCallback: (() -> Void)?) {
         guard let rawJSON = try? JSONSerialization.jsonObject(with: data, options: []),
             let rawDepiction = rawJSON as? [String: Any],
             let className = rawDepiction["class"] as? String,
-            className == "DepictionTabView" else {
+            isValidRootClass(className: className, host: host) else {
             failureCallback?()
             return
         }
@@ -81,7 +85,7 @@ class PackageViewController: UIViewController,
                 self.navBarDownloadButton?.updateStyle()
             }
 
-            guard let depictionView = DepictionBaseView.view(dictionary: rawDepiction, viewController: self, tintColor: nil) else {
+            guard let depictionView = DepictionBaseView.view(dictionary: rawDepiction, viewController: self, tintColor: nil, isActionable: false) else {
                 return
             }
             self.depictionView?.delegate = nil
@@ -114,23 +118,13 @@ class PackageViewController: UIViewController,
         super.viewDidLoad()
         weakNavController = self.navigationController
         
-        weak var weakSelf: PackageViewController? = self
-        if UIColor.useSileoColors {
-            NotificationCenter.default.addObserver(weakSelf as Any,
-                                                   selector: #selector(PackageViewController.updateSileoColors),
-                                                   name: UIColor.sileoDarkModeNotification,
-                                                   object: nil)
-            packageName.textColor = .sileoLabel
-        }
+        weak var weakSelf = self
+        NotificationCenter.default.addObserver(weakSelf as Any,
+                                               selector: #selector(updateSileoColors),
+                                               name: SileoThemeManager.sileoChangedThemeNotification,
+                                               object: nil)
         
-        /*if let host = self.package?.sourceRepo?.url?.host?.lowercased(),
-            host.contains("nepeta.me"){
-            let alertController = UIAlertController(title: "Warning",
-                                                    message: "Warning: This repo has been reported to host packages that contain malicious software.\nContinue at your own risk.",
-                                                    preferredStyle: .alert)
-            alertController.addAction(UIAlertAction(title: String(localizationKey: "OK"), style: .default, handler: nil))
-            self.present(alertController, animated: true, completion: nil)
-        }*/
+        packageName.textColor = .sileoLabel
 
         self.navigationItem.largeTitleDisplayMode = .never
         scrollView.delegate = self
@@ -158,14 +152,15 @@ class PackageViewController: UIViewController,
         depictionHeaderImageViewHeight.constant = 200
         self.navigationController?.navigationBar._backgroundOpacity = 0
         self.navigationController?.navigationBar.tintColor = .white
-        UIApplication.shared.statusBarStyle = .lightContent
-        UIApplication.enableStatusBarFlip = false
+        self.statusBarStyle = .lightContent
 
         self.navigationController?.navigationBar.isTranslucent = true
 
         downloadButton.viewControllerForPresentation = self
+        downloadButton.dataProvider = self
         let navBarDownloadButton = PackageQueueButton()
         navBarDownloadButton.viewControllerForPresentation = self
+        navBarDownloadButton.dataProvider = self
         self.navBarDownloadButton = navBarDownloadButton
 
         let shareButton = UIButton(type: .custom)
@@ -205,12 +200,17 @@ class PackageViewController: UIViewController,
     }
 
     @objc func updateSileoColors() {
-        if UIColor.useSileoColors {
-            packageName.textColor = .sileoLabel
-        }
+        packageName.textColor = .sileoLabel
     }
     
     @objc func reloadData() {
+        guard Thread.current.isMainThread else {
+            DispatchQueue.main.async {
+                self.reloadData()
+            }
+            return
+        }
+        
         depictionView?.removeFromSuperview()
         depictionView = nil
 
@@ -275,7 +275,7 @@ class PackageViewController: UIViewController,
             ]
         ] as [String: Any]
 
-        if let depictionView = DepictionBaseView.view(dictionary: rawDepiction, viewController: self, tintColor: nil) {
+        if let depictionView = DepictionBaseView.view(dictionary: rawDepiction, viewController: self, tintColor: nil, isActionable: false) {
             depictionView.delegate = self
             contentView.addSubview(depictionView)
             self.depictionView = depictionView
@@ -285,22 +285,24 @@ class PackageViewController: UIViewController,
 
         if let depiction = package.depiction,
             let depictionURL = URL(string: depiction) {
-            DispatchQueue.global(qos: .default).async {
-                if let data = try? Data(contentsOf: depictionURL) {
-                    self.parseNativeDepiction(data, failureCallback: nil)
+            let urlRequest = URLManager.urlRequest(depictionURL)
+            let task = URLSession.shared.dataTask(with: urlRequest) { data, _, _ in
+                if let data = data {
+                    self.parseNativeDepiction(data, host: depictionURL.host ?? "", failureCallback: nil)
                 }
             }
+            task.resume()
         } else {
             DispatchQueue.global(qos: .default).async {
                 if let url = URL(string: "https://coolstar.moe/sileoassets/depictionoverride.php?package=\(package.package)"),
                     let data = try? Data(contentsOf: url) {
-                    self.parseNativeDepiction(data, failureCallback: {
+                    self.parseNativeDepiction(data, host: url.host ?? "", failureCallback: {
                         let scraper = HTMLDepictionScraper()
                         if let legacyDepiction = package.legacyDepiction,
                             let url = URL(string: legacyDepiction) {
                             if let rawJSON = try? scraper.scrapeHTML(url: url),
                                 let data = rawJSON.data(using: .utf8) {
-                                self.parseNativeDepiction(data, failureCallback: {
+                                self.parseNativeDepiction(data, host: "", failureCallback: {
                                     os_log("Parsing Failed")
                                 })
                             } else {
@@ -356,7 +358,7 @@ class PackageViewController: UIViewController,
             ] as [String: Any]
         }
 
-        if let depictionFooterView = DepictionBaseView.view(dictionary: footerDict, viewController: self, tintColor: nil) {
+        if let depictionFooterView = DepictionBaseView.view(dictionary: footerDict, viewController: self, tintColor: nil, isActionable: false) {
             depictionFooterView.delegate = self
             self.depictionFooterView = depictionFooterView
             contentView.addSubview(depictionFooterView)
@@ -375,24 +377,23 @@ class PackageViewController: UIViewController,
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        
+        self.statusBarStyle = .default
+        
         self.navigationController?.navigationBar._backgroundOpacity = currentNavBarOpacity
         self.navigationController?.navigationBar.tintColor = .white
-        UIApplication.shared.statusBarStyle = .lightContent
         allowNavbarUpdates = true
-        UIApplication.enableStatusBarFlip = false
         self.scrollViewDidScroll(self.scrollView)
     }
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         allowNavbarUpdates = false
-        let navController = weakNavController
+        let navController = (splitViewController?.isCollapsed ?? false) ? (splitViewController?.viewControllers[0] as? UINavigationController) : weakNavController
         currentNavBarOpacity = navController?.navigationBar._backgroundOpacity ?? 1
         UIView.animate(withDuration: 0.8) {
             navController?.navigationBar.tintColor = UINavigationBar.appearance().tintColor
             navController?.navigationBar._backgroundOpacity = 1
-            UIApplication.enableStatusBarFlip = true
-            UIApplication.shared.statusBarStyle = UIApplication.sileoDefaultStatusBarStyle
         }
     }
 
@@ -460,6 +461,8 @@ class PackageViewController: UIViewController,
         guard allowNavbarUpdates else {
             return
         }
+        
+        let navController = (splitViewController?.isCollapsed ?? false) ? (splitViewController?.viewControllers[0] as? UINavigationController) : self.navigationController
 
         if navBarAlphaOffset < 1 {
             var tintColor = UINavigationBar.appearance().tintColor
@@ -482,23 +485,20 @@ class PackageViewController: UIViewController,
             }
             tintColor = UIColor(red: red, green: green, blue: blue, alpha: 1)
 
-            self.navigationController?.navigationBar.tintColor = tintColor
-            self.navigationController?.navigationBar._backgroundOpacity = navBarAlphaOffset
+            navController?.navigationBar.tintColor = tintColor
+            navController?.navigationBar._backgroundOpacity = navBarAlphaOffset
             if navBarAlphaOffset < 0.75 {
-                UIApplication.shared.statusBarStyle = .lightContent
-                UIApplication.enableStatusBarFlip = false
+                self.statusBarStyle = .lightContent
             } else {
-                UIApplication.shared.statusBarStyle = UIApplication.sileoDefaultStatusBarStyle
-                UIApplication.enableStatusBarFlip = true
+                self.statusBarStyle = .default
             }
         } else {
-            self.navigationController?.navigationBar.tintColor = UINavigationBar.appearance().tintColor
+            navController?.navigationBar.tintColor = UINavigationBar.appearance().tintColor
             if let tintColor = self.depictionView?.tintColor {
-                self.navigationController?.navigationBar.tintColor = tintColor
+                navController?.navigationBar.tintColor = tintColor
             }
-            self.navigationController?.navigationBar._backgroundOpacity = 1
-            UIApplication.shared.statusBarStyle = UIApplication.sileoDefaultStatusBarStyle
-            UIApplication.enableStatusBarFlip = true
+            navController?.navigationBar._backgroundOpacity = 1
+            self.statusBarStyle = .default
         }
         self.setNeedsStatusBarAppearanceUpdate()
     }
@@ -609,6 +609,7 @@ class PackageViewController: UIViewController,
                     DpkgWrapper.ignoreUpdates(true, package: packageID)
                     #endif
                 }
+                NotificationCenter.default.post(Notification(name: PackageListManager.prefsNotification))
             }
             sharePopup.addAction(ignoreUpdates)
         } else {
@@ -648,7 +649,80 @@ class PackageViewController: UIViewController,
         self.dismiss(animated: true, completion: nil)
     }
 
+    func updatePurchaseStatus() {
+        if isUpdatingPurchaseStatus {
+            return
+        }
+        guard let package = self.package,
+            let sourceRepo = package.sourceRepo else {
+            return
+        }
+        isUpdatingPurchaseStatus = true
+
+        PaymentManager.shared.getPaymentProvider(for: sourceRepo) { error, provider in
+            if error != nil {
+                self.checkLegacyPurchaseStatus(package)
+            }
+            provider?.getPackageInfo(forIdentifier: package.package) { error, info in
+                guard let info = info,
+                    error == nil else {
+                    self.checkLegacyPurchaseStatus(package)
+                    return
+                }
+                DispatchQueue.main.async {
+                    self.isUpdatingPurchaseStatus = false
+                    self.downloadButton.paymentInfo = info
+                    self.navBarDownloadButton?.paymentInfo = info
+                }
+            }
+        }
+    }
+
+    func checkLegacyPurchaseStatus(_ package: Package) {
+        let existingPurchased = UserDefaults.standard.array(forKey: "cydia-purchased") as? [String]
+        let isPurchased = existingPurchased?.contains(package.package) ?? false
+
+        if isPurchased {
+            let info = PaymentPackageInfo(dictionary: ["price": "Paid",
+                                                       "purchased": true,
+                                                       "available": true])
+            DispatchQueue.main.async {
+                self.isUpdatingPurchaseStatus = false
+                if let info = info {
+                    self.downloadButton.paymentInfo = info
+                    self.navBarDownloadButton?.paymentInfo = info
+                }
+            }
+        } else {
+            var price = "Paid"
+            if let cydiaAPIURL = URL(string: "https://cydia.saurik.com/api/ibbignerd?query=\(package.package)"),
+                let jsonData = try? Data(contentsOf: cydiaAPIURL),
+                let rawObject = try? JSONSerialization.jsonObject(with: jsonData, options: []),
+                let dictionary = rawObject as? [String: Any] {
+                if let msrp = dictionary["msrp"] as? NSNumber {
+                    price = String(format: "$%.2f", msrp.floatValue)
+                }
+            }
+            let info = PaymentPackageInfo(dictionary: ["price": price,
+                                                       "purchased": false,
+                                                       "available": false])
+            DispatchQueue.main.async {
+                self.isUpdatingPurchaseStatus = false
+                if let info = info {
+                    self.downloadButton.paymentInfo = info
+                    self.navBarDownloadButton?.paymentInfo = info
+                }
+            }
+        }
+    }
+
     override var previewActionItems: [UIPreviewActionItem] {
-        downloadButton.previewActionItems()
+        downloadButton.actionItems().map({ $0.previewAction() })
+    }
+    
+    @available (iOS 13.0, *)
+    func actions() -> [UIAction] {
+        _ = self.view
+        return downloadButton.actionItems().map({ $0.action() })
     }
 }

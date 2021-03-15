@@ -9,17 +9,16 @@
 
 import Foundation
 
-@objc protocol FeaturedViewDelegate: DepictionViewDelegate {
+protocol FeaturedViewDelegate: DepictionViewDelegate {
 }
 
-@objc(FeaturedBaseView)
 open class FeaturedBaseView: DepictionBaseView {
-    @objc override class func view(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor?) -> DepictionBaseView? {
+    @objc override class func view(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor?, isActionable: Bool) -> DepictionBaseView? {
         guard let className = dictionary["class"] as? String else {
             return nil
         }
         
-        guard let rawclass = NSClassFromString(className) as? DepictionBaseView.Type else {
+        guard let rawclass = Bundle.main.classNamed("Sileo.\(className)") as? DepictionBaseView.Type else {
             return nil
         }
         
@@ -28,11 +27,11 @@ open class FeaturedBaseView: DepictionBaseView {
             tintColor = UIColor(css: tintColorStr) ?? UINavigationBar.appearance().tintColor
         }
         
-        return rawclass.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor)
+        return rawclass.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isActionable: isActionable)
     }
     
-    required public init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor) {        
-        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor)
+    required public init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor, isActionable: Bool) {
+        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isActionable: isActionable)
     }
     
     required public init?(coder aDecoder: NSCoder) {

@@ -1,26 +1,5 @@
 #!/bin/bash
-if [ ! -f /etc/apt/sources.list.d/chimera.sources ] && [ ! -f /etc/apt/sources.list.d/electra.list ]; then
-        sourcesDir="/etc/apt/sileo.list.d"
-        mkdir -p $sourcesDir
-        if [ -s /etc/apt/sources.list.d/sileo.sources ]; then
-                mv /etc/apt/sources.list.d/sileo.sources $sourcesDir
-                rm -f /etc/apt/sources.list.d/sileo-base.sources
-        fi
-
-        if ! grep -Fxq "Dir::Etc" /Applications/Sileo.app/sileo-apt.conf ;
-then
-        sed -i.bak '1s;^;Dir::Etc\
-{\
-        sourceparts "sileo.list.d/"\
-}\
-\
-;' /Applications/Sileo.app/sileo-apt.conf
-fi
-rm -f /Applications/Sileo.app/sileo-apt.conf.bak 2> /dev/null || true
-
-else
-        sourcesDir="/etc/apt/sources.list.d"
-fi
+sourcesDir="/etc/apt/sources.list.d"
 
 rm /etc/apt/sources.list.d/sileo.list 2> /dev/null || true
 touch $sourcesDir/sileo.sources
@@ -28,13 +7,13 @@ touch $sourcesDir/sileo.sources
 cr="\n"
 
 if ! [ -s $sourcesDir/sileo.sources ]; then
-	echo -e "" > $sourcesDir/sileo.sources
+        echo -e "" > $sourcesDir/sileo.sources
 fi
 
 if ! grep -Fxq "URIs: https://repounclutter.coolstar.org/" $sourcesDir/sileo.sources ;
 then
-	echo "Installed BigBoss+ Repo"
-	sed -i.bak '1s;^;Types: deb\
+        echo "Installed ModMyTTD+ Repo"
+        sed -i.bak '1s;^;Types: deb\
 URIs: https://repounclutter.coolstar.org/\
 Suites: ./\
 Components:\
@@ -55,7 +34,7 @@ fi
 
 if ! grep -Fxq "URIs: https://repo.dynastic.co/" $sourcesDir/sileo.sources ;
 then
-	echo "Installed Dynastic Repo"
+        echo "Installed Dynastic Repo"
         sed -i.bak '1s;^;Types: deb\
 URIs: https://repo.dynastic.co/\
 Suites: ./\
@@ -74,34 +53,29 @@ Components:\
 \
 ;' $sourcesDir/sileo.sources
 fi
- 
-if [ ! -f /etc/apt/sources.list.d/chimera.sources ] && [ ! -f /etc/apt/sources.list.d/electra.list ]; then
-        if ! [ -s $sourcesDir/sileo-base.sources ]; then
-        echo -e "" > $sourcesDir/sileo-base.sources
-        fi
-        
-        if ! grep -Fxq "URIs: https://apt.bingner.com/" $sourcesDir/sileo-base.sources ;
-        then
-                echo "Installed Elucubratus"
-                sed -i.bak '1s;^;Types: deb\
-URIs: https://apt.bingner.com/\
-Suites: ./\
-Components:\
-\
-;' $sourcesDir/sileo-base.sources
-	fi
 
-        if ! grep -Fxq "URIs: https://repo.getsileo.app/" $sourcesDir/sileo-base.sources ;
-        then
-                echo "Installed GetSileo Repo"
-                sed -i.bak '1s;^;Types: deb\
-URIs: https://repo.getsileo.app/\
-Suites: ./\
-Components:\
+if ! grep -Fxq "URIs: http://apt.thebigboss.org/repofiles/cydia/" $sourcesDir/sileo.sources ;
+then
+        echo "Installed BigBoss Repo"
+        sed -i.bak '1s;^;Types: deb\
+URIs: http://apt.thebigboss.org/repofiles/cydia/\
+Suites: stable\
+Components: main\
 \
-;' $sourcesDir/sileo-base.sources
-        fi
+;' $sourcesDir/sileo.sources
 fi
+ 
+echo "Package: *" > /etc/apt/preferences.d/odyssey
+echo "Pin: release n=odyssey-ios" >> /etc/apt/preferences.d/odyssey
+echo "Pin-Priority: 1001" >> /etc/apt/preferences.d/odyssey
+
+echo "Package: *" > /etc/apt/preferences.d/chimera
+echo "Pin: release o=Chimera Repo" >> /etc/apt/preferences.d/chimera
+echo "Pin-Priority: 1000" >> /etc/apt/preferences.d/chimera
+
+# Kill bingner repo with fire
+rm -f /etc/apt/preferences.d/checkra1n 2> /dev/null || true
+ln -s /dev/null /etc/apt/preferences.d/checkra1n
 
 rm -f $sourcesDir/sileo.sources.bak 2> /dev/null || true
 rm -f $sourcesDir/sileo-base.sources.bak 2> /dev/null || true

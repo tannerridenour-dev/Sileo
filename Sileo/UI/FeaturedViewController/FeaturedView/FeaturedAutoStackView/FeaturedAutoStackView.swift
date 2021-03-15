@@ -10,13 +10,12 @@
 
 import Foundation
 
-@objc(FeaturedAutoStackView)
 class FeaturedAutoStackView: FeaturedBaseView {
     private var views: [DepictionBaseView] = []
     private var viewWidths: [CGFloat] = []
     private var horizontalSpacing = CGFloat(0)
     
-    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor) {
+    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor, isActionable: Bool) {
         guard let views = dictionary["views"] as? [[String: Any]] else {
             return nil
         }
@@ -34,12 +33,12 @@ class FeaturedAutoStackView: FeaturedBaseView {
             }
         }
         
-        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor)
+        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isActionable: isActionable)
         for viewDict in views {
             guard let preferredWidth = viewDict["preferredWidth"] as? CGFloat else {
                 continue
             }
-            if let view = FeaturedBaseView.view(dictionary: viewDict, viewController: viewController, tintColor: tintColor) {
+            if let view = FeaturedBaseView.view(dictionary: viewDict, viewController: viewController, tintColor: tintColor, isActionable: isActionable) {
                 self.views.append(view)
                 self.viewWidths.append(preferredWidth)
                 addSubview(view)
@@ -168,6 +167,16 @@ class FeaturedAutoStackView: FeaturedBaseView {
             view.frame = CGRect(x: xOffset + currentRowX - viewWidth, y: height, width: viewWidth, height: newHeight)
             
             idx += 1
+        }
+    }
+    
+    override var isHighlighted: Bool {
+        didSet {
+            if isActionable {
+                for view in views {
+                    view.isHighlighted = self.isHighlighted
+                }
+            }
         }
     }
 }

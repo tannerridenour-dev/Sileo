@@ -29,10 +29,20 @@ hook(_UIVisualEffectSubview)
             }
             _orig(void, filtersMutable);
             UIColor *backgroundColor = nil;
-            if (UIColor.isDarkModeEnabled) {
+            if (SileoThemeManager.shared.currentTheme.preferredUserInterfaceStyle == 0) {
                 backgroundColor = [UIColor colorWithRed:28.0/255.0 green:28.0/255.0 blue:30.0/255.0 alpha:0.85];
+            } else if (SileoThemeManager.shared.currentTheme.preferredUserInterfaceStyle == 1) {
+               backgroundColor = [UIColor colorWithWhite:1 alpha:0.85];
             } else {
-                backgroundColor = [UIColor colorWithWhite:1 alpha:0.85];
+               if (@available(iOS 13.0, *)) {
+                   if (UITraitCollection.currentTraitCollection.userInterfaceStyle == UIUserInterfaceStyleDark) {
+                       backgroundColor = [UIColor colorWithRed:28.0/255.0 green:28.0/255.0 blue:30.0/255.0 alpha:0.85];
+                   } else {
+                       backgroundColor = [UIColor colorWithWhite:1 alpha:0.85];
+                   }
+               } else {
+                   backgroundColor = [UIColor colorWithWhite:1 alpha:0.85];
+               }
             }
             [self setBackgroundColor:backgroundColor];
         } else {
@@ -52,10 +62,20 @@ hook(_UIVisualEffectSubview)
             // if any superview has WHITE_BLUR_TAG as its tag, make the UIVisualEffectView pure white rather than 97%
             for (UIView *search = (UIView *)self; search; search = search.superview) {
                 if (search.tag == WHITE_BLUR_TAG) {
-                    if (UIColor.isDarkModeEnabled) {
+                    if (SileoThemeManager.shared.currentTheme.preferredUserInterfaceStyle == 0) {
                         backgroundColor = [UIColor colorWithRed:28.0/255.0 green:28.0/255.0 blue:30.0/255.0 alpha:0.85];
-                    } else {
+                    } else if (SileoThemeManager.shared.currentTheme.preferredUserInterfaceStyle == 1) {
                         backgroundColor = [UIColor colorWithWhite:1 alpha:0.85];
+                    } else {
+                        if (@available(iOS 13.0, *)) {
+                            if (UITraitCollection.currentTraitCollection.userInterfaceStyle == UIUserInterfaceStyleDark) {
+                                backgroundColor = [UIColor colorWithRed:28.0/255.0 green:28.0/255.0 blue:30.0/255.0 alpha:0.85];
+                            } else {
+                                backgroundColor = [UIColor colorWithWhite:1 alpha:0.85];
+                            }
+                        } else {
+                            backgroundColor = [UIColor colorWithWhite:1 alpha:0.85];
+                        }
                     }
                 }
             }

@@ -75,17 +75,11 @@ class PackageCollectionViewCell: UICollectionViewCell {
                                                selector: #selector(PackageCollectionViewCell.refreshState),
                                                name: DownloadManager.reloadNotification, object: nil)
         
-        if #available(iOS 13, *) {
-            separatorView?.backgroundColor = .separator
-        }
-        
-        weak var weakSelf: PackageCollectionViewCell? = self
-        if UIColor.useSileoColors {
-            NotificationCenter.default.addObserver(weakSelf as Any,
-                                                   selector: #selector(PackageCollectionViewCell.updateSileoColors),
-                                                   name: UIColor.sileoDarkModeNotification,
-                                                   object: nil)
-        }
+        weak var weakSelf = self
+        NotificationCenter.default.addObserver(weakSelf as Any,
+                                               selector: #selector(updateSileoColors),
+                                               name: SileoThemeManager.sileoChangedThemeNotification,
+                                               object: nil)
     }
     
     @objc func updateSileoColors() {

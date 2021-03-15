@@ -8,13 +8,12 @@
 
 import Foundation
 
-@objc(DepictionSubheaderView)
 class DepictionSubheaderView: DepictionBaseView {
     var headerLabel: UILabel?
     let useMargins: Bool
     let useBottomMargin: Bool
 
-    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor) {
+    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor, isActionable: Bool) {
         guard let title = dictionary["title"] as? String else {
             return nil
         }
@@ -22,20 +21,18 @@ class DepictionSubheaderView: DepictionBaseView {
         useBottomMargin = (dictionary["useBottomMargin"] as? Bool) ?? true
 
         headerLabel = UILabel(frame: .zero)
-        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor)
+        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isActionable: isActionable)
 
         let useBoldText = (dictionary["useBoldText"] as? Bool) ?? false
         if useBoldText {
             headerLabel?.textColor = .sileoLabel
             headerLabel?.font = UIFont.systemFont(ofSize: 14, weight: .semibold)
             
-            weak var weakSelf: DepictionSubheaderView? = self
-            if UIColor.useSileoColors {
-                NotificationCenter.default.addObserver(weakSelf as Any,
-                                                       selector: #selector(DepictionSubheaderView.updateSileoColors),
-                                                       name: UIColor.sileoDarkModeNotification,
-                                                       object: nil)
-            }
+            weak var weakSelf = self
+            NotificationCenter.default.addObserver(weakSelf as Any,
+                                                   selector: #selector(updateSileoColors),
+                                                   name: SileoThemeManager.sileoChangedThemeNotification,
+                                                   object: nil)
         } else {
             headerLabel?.textColor = UIColor(white: 175.0/255.0, alpha: 1)
             headerLabel?.font = UIFont.systemFont(ofSize: 14)

@@ -11,10 +11,12 @@ import Foundation
 protocol FeaturedBannerViewPreview: class {
     func viewController(bannerView: FeaturedBannerView) -> UIViewController?
     func previewingContext(_ previewingContext: UIViewControllerPreviewing, commit viewControllerToCommit: UIViewController)
+    var parentViewController: UIViewController? { get }
 }
 
 class FeaturedBannerView: UIButton, UIViewControllerPreviewingDelegate {
     weak var previewDelegate: FeaturedBannerViewPreview?
+    var interaction: NSObject?
     var banner: [String: Any] = [:] {
         didSet {
             if let bannerURL = banner["url"] as? String {
@@ -78,6 +80,13 @@ class FeaturedBannerView: UIButton, UIViewControllerPreviewingDelegate {
         self.addSubview(highlightView)
         
         self.highlightView = highlightView
+        
+        if #available(iOS 13, *) {
+            let interactionDelegate = FeaturedBannerViewInteractionDelegate(bannerView: self)
+            self.interaction = interactionDelegate
+            let interaction = UIContextMenuInteraction(delegate: interactionDelegate)
+            self.addInteraction(interaction)
+        }
     }
     
     required init?(coder aDecoder: NSCoder) {
@@ -100,5 +109,35 @@ class FeaturedBannerView: UIButton, UIViewControllerPreviewingDelegate {
     
     func previewingContext(_ previewingContext: UIViewControllerPreviewing, commit viewControllerToCommit: UIViewController) {
         self.previewDelegate?.previewingContext(previewingContext, commit: viewControllerToCommit)
+    }
+}
+
+@available (iOS 13, *)
+class FeaturedBannerViewInteractionDelegate: NSObject, UIContextMenuInteractionDelegate {
+    weak var bannerView: FeaturedBannerView!
+    
+    init(bannerView: FeaturedBannerView) {
+        self.bannerView = bannerView
+    }
+    
+    func contextMenuInteraction(_ interaction: UIContextMenuInteraction, configurationForMenuAtLocation location: CGPoint) -> UIContextMenuConfiguration? {
+        if let viewController = bannerView.previewDelegate?.viewController(bannerView: bannerView) {
+            let actions = (viewController as? PackageViewController)?.actions() ?? []
+            
+            return UIContextMenuConfiguration(identifier: nil, previewProvider: {
+                viewController
+            }, actionProvider: {_ in
+                UIMenu(title: "", options: .displayInline, children: actions)
+            })
+        }
+        return nil
+    }
+    
+    func contextMenuInteraction(_ interaction: UIContextMenuInteraction, willPerformPreviewActionForMenuWith configuration: UIContextMenuConfiguration, animator: UIContextMenuInteractionCommitAnimating) {
+        if let controller = animator.previewViewController {
+            animator.addAnimations {
+                self.bannerView.previewDelegate?.parentViewController?.show(controller, sender: nil)
+            }
+        }
     }
 }

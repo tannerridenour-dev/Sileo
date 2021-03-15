@@ -23,7 +23,16 @@ class CSGradientView: UIView {
     }
     
     required init?(coder aDecoder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        super.init(coder: aDecoder)
+        
+        guard let layer = self.layer as? CAGradientLayer else {
+            return
+        }
+        layer.startPoint = CGPoint(x: 0.5, y: 0)
+        layer.endPoint = CGPoint(x: 0.5, y: 1)
+        layer.colors = [UIColor(white: 0, alpha: 0).cgColor,
+                        UIColor(white: 0, alpha: 0.2).cgColor,
+                        UIColor(white: 0, alpha: 0.5).cgColor]
     }
     
     override class var layerClass: AnyClass {

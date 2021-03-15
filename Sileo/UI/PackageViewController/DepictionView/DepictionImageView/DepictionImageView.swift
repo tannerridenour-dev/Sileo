@@ -7,19 +7,18 @@
 //
 
 import Foundation
-import FLAnimatedImage
+import SDWebImage
 
-@objc(DepictionImageView)
 class DepictionImageView: DepictionBaseView {
     let alignment: Int
 
-    let imageView: FLAnimatedImageView?
+    let imageView: SDAnimatedImageView?
 
     var width: CGFloat
     var height: CGFloat
-    let horizontalPadding: CGFloat
+    let xPadding: CGFloat
 
-    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor) {
+    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor, isActionable: Bool) {
         guard let url = dictionary["URL"] as? String else {
             return nil
         }
@@ -34,11 +33,11 @@ class DepictionImageView: DepictionBaseView {
         self.width = width
         self.height = height
         alignment = (dictionary["alignment"] as? Int) ?? 0
-        horizontalPadding = (dictionary["horizontalPadding"] as? CGFloat) ?? CGFloat(0)
+        xPadding = (dictionary["xPadding"] as? CGFloat) ?? CGFloat(0)
 
-        imageView = FLAnimatedImageView(frame: .zero)
+        imageView = SDAnimatedImageView(frame: .zero)
 
-        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor)
+        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isActionable: isActionable)
 
         imageView?.sd_setImage(with: URL(string: url)) { image, _, _, _ in
             guard let size = image?.size else {
@@ -64,7 +63,7 @@ class DepictionImageView: DepictionBaseView {
 
     override func depictionHeight(width: CGFloat) -> CGFloat {
         var height = self.height
-        if self.width > (width - horizontalPadding) {
+        if self.width > (width - xPadding) {
             height = self.height * (width / self.width)
         }
         return height
@@ -74,8 +73,8 @@ class DepictionImageView: DepictionBaseView {
         super.layoutSubviews()
 
         var width = self.width
-        if width > self.bounds.width - horizontalPadding {
-            width = self.bounds.width - horizontalPadding
+        if width > self.bounds.width - xPadding {
+            width = self.bounds.width - xPadding
         }
 
         var x = CGFloat(0)

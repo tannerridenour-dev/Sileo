@@ -8,7 +8,6 @@
 
 import Foundation
 
-@objc(DepictionTabView)
 class DepictionTabView: DepictionBaseView, DepictionTabControlContainer {
     var tabViews: [DepictionTabControl] = []
     var tabContentViews: [DepictionBaseView] = []
@@ -17,7 +16,7 @@ class DepictionTabView: DepictionBaseView, DepictionTabControlContainer {
     var tabViewSeparator: UIView?
     var tabViewHighlight: UIView?
 
-    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor) {
+    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor, isActionable: Bool) {
         guard let tabs = dictionary["tabs"] as? [[String: Any]] else {
             return nil
         }
@@ -31,7 +30,7 @@ class DepictionTabView: DepictionBaseView, DepictionTabControlContainer {
             }
         }
 
-        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor)
+        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isActionable: isActionable)
         tabView = UIView(frame: .zero)
         addSubview(tabView!)
 
@@ -42,7 +41,7 @@ class DepictionTabView: DepictionBaseView, DepictionTabControlContainer {
 
             let tabControl = DepictionTabControl(text: tabName)
 
-            guard let depictionView = DepictionBaseView.view(dictionary: tab, viewController: viewController, tintColor: tintColor) else {
+            guard let depictionView = DepictionBaseView.view(dictionary: tab, viewController: viewController, tintColor: tintColor, isActionable: isActionable) else {
                 continue
             }
 
@@ -52,16 +51,14 @@ class DepictionTabView: DepictionBaseView, DepictionTabControlContainer {
         }
 
         tabViewSeparator = UIView(frame: .zero)
-        if UIColor.useSileoColors {
-            tabViewSeparator?.backgroundColor = .sileoSeparatorColor
-            weak var weakSelf: DepictionTabView? = self
-            NotificationCenter.default.addObserver(weakSelf as Any,
-                                                   selector: #selector(DepictionTabView.updateSileoColors),
-                                                   name: UIColor.sileoDarkModeNotification,
-                                                   object: nil)
-        } else if #available(iOS 13, *) {
-            tabViewSeparator?.backgroundColor = .separator
-        }
+        tabViewSeparator?.backgroundColor = .sileoSeparatorColor
+        
+        weak var weakSelf = self
+        NotificationCenter.default.addObserver(weakSelf as Any,
+                                               selector: #selector(updateSileoColors),
+                                               name: SileoThemeManager.sileoChangedThemeNotification,
+                                               object: nil)
+        
         tabView?.addSubview(tabViewSeparator!)
 
         tabViewHighlight = UIView(frame: .zero)
@@ -144,5 +141,15 @@ class DepictionTabView: DepictionBaseView, DepictionTabControlContainer {
     
     @objc func updateSileoColors() {
         tabViewSeparator?.backgroundColor = .sileoSeparatorColor
+    }
+    
+    override var isHighlighted: Bool {
+        didSet {
+            if isActionable {
+                for view in tabContentViews {
+                    view.isHighlighted = self.isHighlighted
+                }
+            }
+        }
     }
 }

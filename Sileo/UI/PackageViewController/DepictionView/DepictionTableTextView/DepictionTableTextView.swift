@@ -8,11 +8,10 @@
 
 import Foundation
 
-@objc(DepictionTableTextView)
 class DepictionTableTextView: DepictionBaseView {
     private var titleLabel, textLabel: UILabel
 
-    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor) {
+    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor, isActionable: Bool) {
         guard let title = dictionary["title"] as? String else {
             return nil
         }
@@ -22,7 +21,7 @@ class DepictionTableTextView: DepictionBaseView {
         titleLabel = UILabel(frame: .zero)
         textLabel = UILabel(frame: .zero)
 
-        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor)
+        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isActionable: isActionable)
 
         titleLabel.text = title
         titleLabel.textAlignment = .left
@@ -33,14 +32,14 @@ class DepictionTableTextView: DepictionBaseView {
         textLabel.text = text
         textLabel.textAlignment = .right
         textLabel.font = UIFont.systemFont(ofSize: 17)
-        weak var weakSelf: DepictionTableTextView? = self
-        if UIColor.useSileoColors {
-            NotificationCenter.default.addObserver(weakSelf as Any,
-                                                   selector: #selector(DepictionTableTextView.updateSileoColors),
-                                                   name: UIColor.sileoDarkModeNotification,
-                                                   object: nil)
-            textLabel.textColor = .sileoLabel
-        }
+        
+        weak var weakSelf = self
+        NotificationCenter.default.addObserver(weakSelf as Any,
+                                               selector: #selector(updateSileoColors),
+                                               name: SileoThemeManager.sileoChangedThemeNotification,
+                                               object: nil)
+        textLabel.textColor = .sileoLabel
+        
         self.addSubview(textLabel)
     }
 
@@ -49,9 +48,7 @@ class DepictionTableTextView: DepictionBaseView {
     }
     
     @objc func updateSileoColors() {
-        if UIColor.useSileoColors {
-            textLabel.textColor = .sileoLabel
-        }
+        textLabel.textColor = .sileoLabel
     }
 
     override func depictionHeight(width: CGFloat) -> CGFloat {

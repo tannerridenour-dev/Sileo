@@ -45,13 +45,12 @@ class LicenseViewController: UIViewController {
         view.addSubview(textView)
         
         view.backgroundColor = .sileoContentBackgroundColor
-        if UIColor.useSileoColors {
-            weak var weakSelf: LicenseViewController? = self
-            NotificationCenter.default.addObserver(weakSelf as Any,
-                                                   selector: #selector(LicenseViewController.updateSileoColors),
-                                                   name: UIColor.sileoDarkModeNotification,
-                                                   object: nil)
-        }
+        
+        weak var weakSelf = self
+        NotificationCenter.default.addObserver(weakSelf as Any,
+                                               selector: #selector(updateSileoColors),
+                                               name: SileoThemeManager.sileoChangedThemeNotification,
+                                               object: nil)
         
         // Constraints
         textView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor).isActive = true

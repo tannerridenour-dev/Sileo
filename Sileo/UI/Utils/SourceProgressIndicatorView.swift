@@ -33,7 +33,7 @@ class SourceProgressIndicatorView: UIView {
         barView.backgroundColor = self.tintColor
     }
     
-    @objc public var progress: CGFloat = 0 {
+    public var progress: CGFloat = 0 {
         didSet {
             self.updateProgress()
         }

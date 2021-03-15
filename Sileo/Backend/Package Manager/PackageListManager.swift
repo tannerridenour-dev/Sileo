@@ -8,8 +8,9 @@
 import Foundation
 import CoreSpotlight
 
-class PackageListManager: NSObject {
+final class PackageListManager {
     static let reloadNotification = Notification.Name("SileoPackageCacheReloaded")
+    static let prefsNotification = Notification.Name("SileoPackagePrefsChanged")
     static let didUpdateNotification = Notification.Name("SileoDatabaseDidUpdateNotification")
     
     private(set) var installedPackages: [Package]?
@@ -32,6 +33,7 @@ class PackageListManager: NSObject {
     }
     
     public func waitForChangesDatabaseReady() {
+        self.waitForReady()
         changesDatabaseLock.wait()
         changesDatabaseLock.signal()
     }
@@ -58,48 +60,41 @@ class PackageListManager: NSObject {
         databaseLock.signal()
     }
     
-    public func availableUpdates() -> [Package] {
-        self.loadAllPackages()
-        var updatesAvailable: [Package] = []
+    public func availableUpdates() -> [(Package, Package?)] {
+        self.waitForReady()
+        var updatesAvailable: [(Package, Package?)] = []
         for package in installedPackages ?? [] {
             guard let latestPackage = self.newestPackage(identifier: package.packageID) else {
                 continue
             }
             if latestPackage.version != package.version {
                 if DpkgWrapper.isVersion(latestPackage.version, greaterThan: package.version) {
-                    updatesAvailable.append(latestPackage)
+                    updatesAvailable.append((latestPackage, package))
                 }
             }
         }
         
         #if !targetEnvironment(simulator) && !TARGET_SANDBOX
-        if self.installedPackage(identifier: "apt-key") == nil {
-            if let newPackage = self.newestPackage(identifier: "apt-key") {
-                updatesAvailable.append(newPackage)
-            }
-        }
-        
-        if self.installedPackage(identifier: "apt-lib") == nil {
-            if let newPackage = self.newestPackage(identifier: "apt-lib") {
-                updatesAvailable.append(newPackage)
-            }
-        }
-        
         if self.installedPackage(identifier: "apt") == nil {
             if let newPackage = self.newestPackage(identifier: "apt") {
-                updatesAvailable.append(newPackage)
+                updatesAvailable.append((newPackage, nil))
             }
         }
         #endif
         return updatesAvailable
     }
     
-    func checkHardcodedPolicy(_ package1: Package, package2: Package) -> Bool {
+    private func checkHardcodedPolicy(_ package1: Package, package2: Package) -> Bool {
         let sourceRepo1 = package1.sourceRepo?.url?.host
         let sourceRepo2 = package2.sourceRepo?.url?.host
-        if sourceRepo1 == "repo.getsileo.app" && sourceRepo2 != "repo.getsileo.app" {
+        if sourceRepo1 == "apt.procurs.us" && sourceRepo2 != "apt.procurs.us" {
             return true
-        } else if sourceRepo1 != "repo.getsileo.app" && sourceRepo2 == "repo.getsileo.app" {
+        } else if sourceRepo1 != "apt.procurs.us" && sourceRepo2 == "apt.procurs.us" {
+            return false
+        }
+        if sourceRepo1 == "repo.theodyssey.dev" && sourceRepo2 != "repo.theodyssey.dev" {
+            return true
+        } else if sourceRepo1 != "repo.theodyssey.dev" && sourceRepo2 == "repo.theodyssey.dev" {
             return false
         }
         if sourceRepo1 == "repo.chimera.sh" && sourceRepo2 != "repo.chimera.sh" {
@@ -107,16 +102,16 @@ class PackageListManager: NSObject {
         } else if sourceRepo1 != "repo.chimera.sh" && sourceRepo2 == "repo.chimera.sh" {
             return false
         }
-        if sourceRepo1 == "electrarepo64.coolstar.org" && sourceRepo2 != "electrarepo64.coolstar.org" {
+        if sourceRepo1 == "repo.getsileo.app" && sourceRepo2 != "repo.getsileo.app" {
             return true
-        } else if sourceRepo1 != "electrarepo64.coolstar.org" && sourceRepo2 == "electrarepo64.coolstar.org" {
+        } else if sourceRepo1 != "repo.getsileo.app" && sourceRepo2 == "repo.getsileo.app" {
             return false
         }
         return DpkgWrapper.isVersion(package1.version,
                                      greaterThan: package2.version)
     }
     
-    func loadAllPackages() {
+    private func loadAllPackages() {
         databaseLock.wait()
         
         defer { databaseLock.signal() }
@@ -125,17 +120,37 @@ class PackageListManager: NSObject {
             return
         }
         
-        for repo in RepoManager.shared.repoList {
-            _ = self.packagesList(loadIdentifier: "", repoContext: repo)
+        var repos = RepoManager.shared.repoList
+        let lock = DispatchSemaphore(value: 1)
+        let updateGroup = DispatchGroup()
+        
+        for threadID in 0..<(ProcessInfo.processInfo.processorCount) {
+            updateGroup.enter()
+            let repoLoadQueue = DispatchQueue(label: "repo-queue-\(threadID)")
+            repoLoadQueue.async {
+                while true {
+                    lock.wait()
+                    guard !repos.isEmpty else {
+                        lock.signal()
+                        break
+                    }
+                    let repo = repos.removeFirst()
+                    lock.signal()
+                    
+                    _ = self.packagesList(loadIdentifier: "", repoContext: repo)
+                }
+                updateGroup.leave()
+            }
         }
+        updateGroup.wait()
         
         var allPackagesTempDictionary: [String: Package] = [:]
         allPackages = []
+        
         for repo in RepoManager.shared.repoList {
             for package in repo.packages ?? [] {
                 let packageID = package.package
                 if let otherPkg = allPackagesTempDictionary[packageID] {
-                    #warning("TODO: Policy Checking")
                     if (checkHardcodedPolicy(package, package2: otherPkg)
                         && package.filename != nil) || otherPkg.filename == nil {
                         allPackagesTempDictionary[packageID] = package
@@ -149,7 +164,6 @@ class PackageListManager: NSObject {
         for package in installedPackages ?? [] {
             let packageID = package.package
             if let otherPkg = allPackagesTempDictionary[packageID] {
-                #warning("TODO: Policy Checking")
                 if (checkHardcodedPolicy(package, package2: otherPkg)
                     && package.filename != nil) || otherPkg.filename == nil {
                     allPackagesTempDictionary[packageID] = package
@@ -163,11 +177,49 @@ class PackageListManager: NSObject {
             allPackages?.append(val)
         }
         
-        allPackagesTempDictionary.removeAll()
+        databaseUpdateQueue.async {
+            if let allPackages = self.allPackages {
+                self.changesDatabaseLock.wait()
+                
+                let newGuids = DatabaseManager.shared.serializePackages(allPackages)
+                let oldGuidsFile = DatabaseManager.shared.knownPackages()
+                
+                if !oldGuidsFile.isEmpty {
+                    let addedPackages = newGuids.filter({ !oldGuidsFile.contains($0) })
+                    for changedPackage in addedPackages {
+                        if let packageID = changedPackage["package"],
+                            let package = allPackagesTempDictionary[packageID] {
+                            let stub = PackageStub(from: package)
+                            stub.save()
+                        }
+                    }
+                    
+                    let removedPackages = oldGuidsFile.filter({ !newGuids.contains($0) })
+                    for removedPackage in removedPackages {
+                        if let packageID = removedPackage["package"] {
+                            if allPackagesTempDictionary[packageID] == nil {
+                                PackageStub.delete(packageName: packageID)
+                            }
+                        }
+                    }
+                }
+                DatabaseManager.shared.savePackages(newGuids)
+                allPackagesTempDictionary.removeAll()
+                self.changesDatabaseLock.signal()
+                
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: PackageListManager.didUpdateNotification, object: nil)
+                }
+            }
+        }
+        
         isLoaded = true
         
-        DownloadManager.shared.removeAllItems()
-        DownloadManager.shared.reloadData(recheckPackages: true)
+        DispatchQueue.global(qos: .userInitiated).async {
+            DependencyResolverAccelerator.shared.preflightInstalled()
+            DownloadManager.shared.removeAllItems()
+            DownloadManager.shared.reloadData(recheckPackages: true)
+        }
     }
     
     public func humanReadableCategory(_ rawCategory: String?) -> String {
@@ -202,9 +254,6 @@ class PackageListManager: NSObject {
             }
         }
         package.section = dictionary["section"]
-        package.depends = dictionary["depends"]
-        package.provides = dictionary["provides"]
-        package.replaces = dictionary["replaces"]
         
         package.packageDescription = dictionary["description"]
         package.legacyDepiction = dictionary["depiction"]
@@ -268,7 +317,7 @@ class PackageListManager: NSObject {
                                                      lookupTable: [:])
             } else if useCache {
                 if allPackages == nil {
-                    loadAllPackages()
+                    self.waitForReady()
                 }
                 packagesList = allPackages
             }
@@ -292,7 +341,7 @@ class PackageListManager: NSObject {
                 let index = identifier.index(identifier.startIndex, offsetBy: 7)
                 searchName = identifier[index...]
                 
-                if useCache {
+                if useCache && !loadIdentifier.contains(",") {
                     let cacheKeys = lookupTable.keys.sorted { x, y -> Bool in
                         y.count < x.count
                     }
@@ -398,7 +447,7 @@ class PackageListManager: NSObject {
                                 continue
                             }
                         }
-                        tempDictionary[packageID] = package
+                        packagesList?.append(package)
                     } else {
                         if let otherPkg = tempDictionary[packageID] {
                             if DpkgWrapper.isVersion(package.version, greaterThan: otherPkg.version) {
@@ -419,28 +468,24 @@ class PackageListManager: NSObject {
         }
         
         var packageListFinal: [Package] = packagesList ?? []
-        packageListFinal.removeAll { pkg in
-            if categorySearch != nil,
-                self.humanReadableCategory(pkg.section).lowercased() != categorySearch?.lowercased() {
-                return true
-            }
-            if let searchQuery = searchName,
-                !(pkg.name?.lowercased().contains(searchQuery.lowercased()) ?? true) {
-                return true
-            }
-            if let searchEmail = authorEmail {
-                guard let lowercaseAuthor = pkg.author?.lowercased() else {
+        if categorySearch != nil {
+            packageListFinal.removeAll { self.humanReadableCategory($0.section).lowercased() != categorySearch?.lowercased() }
+        }
+        if let searchQuery = searchName {
+            packageListFinal.removeAll { !($0.name?.lowercased().contains(searchQuery.lowercased()) ?? true) }
+        }
+        if let searchEmail = authorEmail {
+            packageListFinal.removeAll {
+                guard let lowercaseAuthor = $0.author?.lowercased() else {
                     return true
                 }
-                if ControlFileParser.authorEmail(string: lowercaseAuthor) != searchEmail.lowercased() {
-                    return true
-                }
+                return ControlFileParser.authorEmail(string: lowercaseAuthor) != searchEmail.lowercased()
             }
-            if let searchIdentifiers = packageIdentifiers,
-                !searchIdentifiers.contains(pkg.package) {
-                return true
+        }
+        if let searchIdentifiers = packageIdentifiers {
+            packageListFinal.removeAll {
+                !searchIdentifiers.contains($0.package)
             }
-            return false
         }
         
         if sortPackages {
@@ -487,21 +532,7 @@ class PackageListManager: NSObject {
         }
         return packageListFinal
     }
-    
-    public func filteredPackagesForDisplay(_ packages: [Package]) -> [Package] {
-        var newPackages: [Package] = []
-        let userType = UserDefaults.standard.integer(forKey: "userType")
-        for package in packages {
-            if package.tags.contains(.sileo) ||
-                (userType != 2 && package.tags.contains(.developer)) ||
-                (userType == 0 && package.tags.contains(.hacker)) {
-                continue
-            }
-            newPackages.append(package)
-        }
-        return newPackages
-    }
-    
+
     public func newestPackage(identifier: String) -> Package? {
         if identifier.contains("/") {
             let url = URL(fileURLWithPath: identifier)
@@ -534,7 +565,8 @@ class PackageListManager: NSObject {
     }
     
     public func package(url: URL) -> Package? {
-        let filePath = url.path
+        let canonicalPath = (try? url.resourceValues(forKeys: [.canonicalPathKey]))?.canonicalPath
+        let filePath = canonicalPath ?? url.path
         return newestPackage(identifier: filePath)
     }
     
@@ -572,8 +604,9 @@ class PackageListManager: NSObject {
     
     @objc public func markUpgradeAll(_ sender: Any) {
         let availableUpdates = self.availableUpdates()
-        for package in availableUpdates {
-            guard let installedPackage = self.installedPackage(identifier: package.package) else {
+        for packageTuple in availableUpdates {
+            let package = packageTuple.0
+            guard let installedPackage = packageTuple.1 else {
                 continue
             }
             if installedPackage.wantInfo == .install || installedPackage.wantInfo == .unknown {

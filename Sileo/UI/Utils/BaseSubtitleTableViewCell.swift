@@ -9,7 +9,7 @@
 import Foundation
 import SDWebImage
 
-class BaseSubtitleTableViewCell: UITableViewCell {
+open class BaseSubtitleTableViewCell: UITableViewCell {
     let iconView: PackageIconView
     let progressView: SourceProgressIndicatorView
     var iconURL: URL?
@@ -21,7 +21,7 @@ class BaseSubtitleTableViewCell: UITableViewCell {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         
         self.contentView.addSubview(iconView)
-        progressView.tintColor = UIColor(red: 44.0/255.0, green: 177.0/255.0, blue: 190.0/255.0, alpha: 1)
+        progressView.tintColor = SileoThemeManager.shared.tintColor
         self.contentView.insertSubview(progressView, at: 0)
         
         self.textLabel?.font = UIFont.systemFont(ofSize: 17, weight: .semibold)
@@ -31,15 +31,13 @@ class BaseSubtitleTableViewCell: UITableViewCell {
         
         self.backgroundColor = .clear
         
-        weak var weakSelf: BaseSubtitleTableViewCell? = self
-        if UIColor.useSileoColors {
-            NotificationCenter.default.addObserver(weakSelf as Any,
-                                                   selector: #selector(BaseSubtitleTableViewCell.updateSileoColors),
-                                                   name: UIColor.sileoDarkModeNotification,
-                                                   object: nil)
-            self.textLabel?.textColor = .sileoLabel
-            self.selectedBackgroundView = SileoSelectionView(frame: .zero)
-        }
+        weak var weakSelf = self
+        NotificationCenter.default.addObserver(weakSelf as Any,
+                                               selector: #selector(updateSileoColors),
+                                               name: SileoThemeManager.sileoChangedThemeNotification,
+                                               object: nil)
+        self.textLabel?.textColor = .sileoLabel
+        self.selectedBackgroundView = SileoSelectionView(frame: .zero)
     }
     
     required public init?(coder aDecoder: NSCoder) {
@@ -47,9 +45,8 @@ class BaseSubtitleTableViewCell: UITableViewCell {
     }
     
     @objc func updateSileoColors() {
-        if UIColor.useSileoColors {
-            self.textLabel?.textColor = .sileoLabel
-        }
+        self.textLabel?.textColor = .sileoLabel
+        progressView.tintColor = SileoThemeManager.shared.tintColor
     }
     
     override open func layoutSubviews() {
@@ -102,7 +99,7 @@ class BaseSubtitleTableViewCell: UITableViewCell {
         guard let url = url else {
             return
         }
-        SDWebImageManager.shared().loadImage(with: url, options: [], progress: nil) { image, _, _, _, finished, _ in
+        SDWebImageManager.shared.loadImage(with: url, options: [], progress: nil) { image, _, _, _, finished, _ in
             DispatchQueue.main.async {
                 if finished && url == self.iconURL && image != nil {
                     self.icon = image

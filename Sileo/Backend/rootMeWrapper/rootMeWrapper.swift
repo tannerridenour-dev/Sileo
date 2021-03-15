@@ -137,6 +137,20 @@ func copyFileAsRoot(from: URL, to: URL) {
     #endif
 }
 
+func cloneFileAsRoot(from: URL, to: URL) {
+    deleteFileAsRoot(to)
+
+    #if targetEnvironment(simulator) || TARGET_SANDBOX
+    try? FileManager.default.copyItem(at: from, to: to)
+    #else
+    if FileManager.default.fileExists(atPath: "/usr/bin/bsdcp") {
+        spawnAsRoot(command: "bsdcp -c '\(from.path)' '\(to.path)' ; chown 0:0 '\(to.path)' ; chmod 0644 '\(to.path)'")
+    } else {
+        spawnAsRoot(command: "cp -c '\(from.path)' '\(to.path)' ; chown 0:0 '\(to.path)' ; chmod 0644 '\(to.path)'")
+    }
+    #endif
+}
+
 func moveFileAsRoot(from: URL, to: URL) {
     deleteFileAsRoot(to)
     

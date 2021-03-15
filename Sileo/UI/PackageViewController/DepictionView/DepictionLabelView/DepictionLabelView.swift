@@ -8,19 +8,18 @@
 
 import Foundation
 
-@objc(DepictionLabelView)
 class DepictionLabelView: DepictionBaseView {
     private let label: UILabel
     private var useDefaultColor: Bool = false
     private var margins: UIEdgeInsets = UIEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
 
-    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor) {
+    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor, isActionable: Bool) {
         guard let text = dictionary["text"] as? String else {
             return nil
         }
 
         label = UILabel(frame: .zero)
-        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor)
+        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isActionable: isActionable)
 
         if let rawMargins = dictionary["margins"] as? String {
             margins = NSCoder.uiEdgeInsets(for: rawMargins)
@@ -59,13 +58,11 @@ class DepictionLabelView: DepictionBaseView {
         }
         
         if useDefaultColor {
-            weak var weakSelf: DepictionLabelView? = self
-            if UIColor.useSileoColors {
-                NotificationCenter.default.addObserver(weakSelf as Any,
-                                                       selector: #selector(DepictionHeaderView.updateSileoColors),
-                                                       name: UIColor.sileoDarkModeNotification,
-                                                       object: nil)
-            }
+            weak var weakSelf = self
+            NotificationCenter.default.addObserver(weakSelf as Any,
+                                                   selector: #selector(updateSileoColors),
+                                                   name: SileoThemeManager.sileoChangedThemeNotification,
+                                                   object: nil)
         }
 
         let weight = fontWeightParse(str: fontWeight)
@@ -126,12 +123,32 @@ class DepictionLabelView: DepictionBaseView {
     override func layoutSubviews() {
         super.layoutSubviews()
         if useDefaultColor {
-            label.textColor = .sileoLabel
+            if isActionable {
+                if isHighlighted {
+                    var tintHue: CGFloat = 0
+                    var tintSat: CGFloat = 0
+                    var tintBrightness: CGFloat = 0
+                    self.tintColor.getHue(&tintHue, saturation: &tintSat, brightness: &tintBrightness, alpha: nil)
+                    
+                    tintBrightness *= 0.75
+                    label.textColor = UIColor(hue: tintHue, saturation: tintSat, brightness: tintBrightness, alpha: 1)
+                } else {
+                    label.textColor = self.tintColor
+                }
+            } else {
+                label.textColor = .sileoLabel
+            }
         }
         
         label.frame = CGRect(x: margins.left,
                              y: margins.top,
                              width: self.bounds.width - (margins.left + margins.right),
                              height: self.bounds.height - (margins.top + margins.bottom))
+    }
+    
+    override var isHighlighted: Bool {
+        didSet {
+            self.layoutSubviews()
+        }
     }
 }

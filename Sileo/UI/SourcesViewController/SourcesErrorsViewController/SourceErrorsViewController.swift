@@ -8,14 +8,13 @@
 
 import UIKit
 
-class SourcesErrorsViewController: UIViewController {
-    @objc public var attributedString: NSAttributedString?
+class SourcesErrorsViewController: SileoViewController {
+    public var attributedString: NSAttributedString?
     @IBOutlet weak var errorOutputText: UITextView?
     @IBOutlet weak private var dismissButton: UIButton?
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        UIApplication.shared.statusBarStyle = .lightContent
     }
     
     override func viewDidLoad() {
@@ -23,15 +22,17 @@ class SourcesErrorsViewController: UIViewController {
             self.title = String(localizationKey: "Refreshing_Sources_Page")
         }
         super.viewDidLoad()
+        
         if let attributedString = attributedString {
             errorOutputText?.attributedText = transform(attributedString: attributedString)
         }
         dismissButton?.layer.cornerRadius = 10
         dismissButton?.setTitle(String(localizationKey: "Done"), for: .normal)
+        
+        self.statusBarStyle = .lightContent
     }
     
     @IBAction func dismiss(_ sender: Any?) {
-        UIApplication.shared.statusBarStyle = .default
         dismiss(animated: true, completion: nil)
     }
     
@@ -59,9 +60,5 @@ class SourcesErrorsViewController: UIViewController {
             NSAttributedString.Key.paragraphStyle: paragraphStyle
         ], range: NSRange(location: 0, length: str.length))
         return str
-    }
-    
-    override var preferredStatusBarStyle: UIStatusBarStyle {
-        .lightContent
     }
 }

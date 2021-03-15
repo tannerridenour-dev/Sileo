@@ -9,28 +9,22 @@
 
 import Foundation
 
-@objc(FeaturedSeparatorView)
 class FeaturedSeparatorView: FeaturedBaseView {
     private var separatorView: UIView?
     
-    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor) {
+    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor, isActionable: Bool) {
         separatorView = UIView(frame: .zero)
         
-        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor)
-        if #available(iOS 13, *) {
-            separatorView?.backgroundColor = .separator
-        } else {
-            separatorView?.backgroundColor = .sileoSeparatorColor
-        }
+        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isActionable: isActionable)
+        
+        separatorView?.backgroundColor = .sileoSeparatorColor
         addSubview(separatorView!)
         
-        weak var weakSelf: FeaturedSeparatorView? = self
-        if UIColor.useSileoColors {
-            NotificationCenter.default.addObserver(weakSelf as Any,
-                                                   selector: #selector(FeaturedSeparatorView.updateSileoColors),
-                                                   name: UIColor.sileoDarkModeNotification,
-                                                   object: nil)
-        }
+        weak var weakSelf = self
+        NotificationCenter.default.addObserver(weakSelf as Any,
+                                               selector: #selector(updateSileoColors),
+                                               name: SileoThemeManager.sileoChangedThemeNotification,
+                                               object: nil)
     }
     
     @objc func updateSileoColors() {

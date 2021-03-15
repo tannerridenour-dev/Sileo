@@ -14,28 +14,22 @@ class PackageListHeader: UICollectionReusableView {
     @IBOutlet weak var upgradeButton: UIButton?
     @IBOutlet weak var sortButton: UIButton?
     @IBOutlet weak var separatorView: UIImageView?
-    @IBOutlet weak var settingsButton: UIButton?
-    @IBOutlet weak var settingsControl: UISegmentedControl?
 
     override func awakeFromNib() {
         super.awakeFromNib()
         toolbar?._hidesShadow = true
         toolbar?.tag = WHITE_BLUR_TAG
         
-        weak var weakSelf: PackageListHeader? = self
-        if UIColor.useSileoColors {
-            NotificationCenter.default.addObserver(weakSelf as Any,
-                                                   selector: #selector(PackageListHeader.updateSileoColors),
-                                                   name: UIColor.sileoDarkModeNotification,
-                                                   object: nil)
-            label?.textColor = .sileoLabel
-        }
+        weak var weakSelf = self
+        NotificationCenter.default.addObserver(weakSelf as Any,
+                                               selector: #selector(updateSileoColors),
+                                               name: SileoThemeManager.sileoChangedThemeNotification,
+                                               object: nil)
+        label?.textColor = .sileoLabel
     }
     
     @objc func updateSileoColors() {
-        if UIColor.useSileoColors {
-            label?.textColor = .sileoLabel
-        }
+        label?.textColor = .sileoLabel
     }
     
     public var actionText: String? {

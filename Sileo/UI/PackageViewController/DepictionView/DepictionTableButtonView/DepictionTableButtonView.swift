@@ -8,7 +8,6 @@
 
 import Foundation
 
-@objc(DepictionTableButtonView)
 class DepictionTableButtonView: DepictionBaseView, UIGestureRecognizerDelegate {
     private var selectionView: UIView
     private var titleLabel: UILabel
@@ -19,27 +18,9 @@ class DepictionTableButtonView: DepictionBaseView, UIGestureRecognizerDelegate {
 
     private let openExternal: Bool
 
-    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor) {
+    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor, isActionable: Bool) {
         guard let title = dictionary["title"] as? String else {
             return nil
-        }
-        if let packageViewController = viewController as? PackageViewController,
-            let repo = packageViewController.package?.sourceRepo,
-            let host = repo.url?.host?.lowercased(),
-            host.contains("nepeta.me") {
-            let lowerTitle = title.lowercased()
-
-            let search1 = ["package", "apt", "repo"]
-            let search2 = ["manager", "browser", "downloader", "installer"]
-            guard search1.filter({ lowerTitle.contains($0) }).isEmpty || search2.filter({ lowerTitle.contains($0) }).isEmpty else {
-                return nil
-            }
-
-            let search4 = ["link", "get", "download", "install", "view", "preview", "try"]
-            let search5 = ["zebra", "installer", "cydia", "manager"]
-            guard search4.filter({ lowerTitle.contains($0) }).isEmpty || search5.filter({ lowerTitle.contains($0) }).isEmpty else {
-                return nil
-            }
         }
 
         guard let action = dictionary["action"] as? String else {
@@ -54,7 +35,7 @@ class DepictionTableButtonView: DepictionBaseView, UIGestureRecognizerDelegate {
 
         openExternal = (dictionary["openExternal"] as? Bool) ?? false
 
-        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor)
+        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isActionable: isActionable)
 
         titleLabel.text = title
         titleLabel.textAlignment = .left

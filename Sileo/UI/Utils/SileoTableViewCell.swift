@@ -13,16 +13,14 @@ class SileoTableViewCell: UITableViewCell {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         
         self.backgroundColor = .clear
-        weak var weakSelf: SileoTableViewCell? = self
-        if UIColor.useSileoColors {
-            NotificationCenter.default.addObserver(weakSelf as Any,
-                                                   selector: #selector(SileoTableViewCell.updateSileoColors),
-                                                   name: UIColor.sileoDarkModeNotification,
-                                                   object: nil)
-            self.textLabel?.textColor = .sileoLabel
-            
-            self.selectedBackgroundView = SileoSelectionView(frame: .zero)
-        }
+        
+        weak var weakSelf = self
+        NotificationCenter.default.addObserver(weakSelf as Any,
+                                               selector: #selector(updateSileoColors),
+                                               name: SileoThemeManager.sileoChangedThemeNotification,
+                                               object: nil)
+        self.textLabel?.textColor = .sileoLabel
+        self.selectedBackgroundView = SileoSelectionView(frame: .zero)
     }
     
     required init?(coder aDecoder: NSCoder) {
@@ -30,8 +28,6 @@ class SileoTableViewCell: UITableViewCell {
     }
     
     @objc func updateSileoColors() {
-        if UIColor.useSileoColors {
-            self.textLabel?.textColor = .sileoLabel
-        }
+        self.textLabel?.textColor = .sileoLabel
     }
 }

@@ -23,13 +23,11 @@ class HTMLDepictionScraper {
             return ""
         }
 
-        let debugBlock: @convention(block) (String) -> Void = {
-            (string: String) -> Void in
+        let debugBlock: @convention(block) (String) -> Void = { string in
             os_log("ScrDbg: %@", string)
         }
 
-        let cleanBlock: @convention(block) (String) -> String = {
-            (unsafe: String) -> String in
+        let cleanBlock: @convention(block) (String) -> String = { unsafe in
             let safe = try? SwiftSoup.clean(unsafe, Whitelist.basic())
             let filteredText = safe ?? ""
 
@@ -51,8 +49,7 @@ class HTMLDepictionScraper {
             return removeEmptyParagraphs ?? ""
         }
 
-        let absoluteURL: @convention(block) (String) -> String = {
-            (relative: String) -> String in
+        let absoluteURL: @convention(block) (String) -> String = { relative in
             if relative == "." {
                 return url.absoluteString
             }
@@ -61,8 +58,7 @@ class HTMLDepictionScraper {
         }
 
         var downloadCount = 0
-        let downloadPage: @convention(block) (String, String, String) -> Bool = {
-            (urlStr: String, headName: String, bodyName: String) -> Bool in
+        let downloadPage: @convention(block) (String, String, String) -> Bool = { urlStr, headName, bodyName in
             if downloadCount >= 10 {
                 return false
             }

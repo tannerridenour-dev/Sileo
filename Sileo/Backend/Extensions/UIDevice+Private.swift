@@ -12,8 +12,8 @@ let randomUUID = UUID()
 
 extension UIDevice {
     @objc public var uniqueIdentifier: String {
-        #if TARGET_SANDBOX
-        return TEST_UUID
+        #if TARGET_SANDBOX || targetEnvironment(simulator)
+        return TEST_UDID
         #else
         let gestalt = dlopen("/usr/lib/libMobileGestalt.dylib", RTLD_GLOBAL | RTLD_LAZY)
         typealias MGCopyAnswerFunc = @convention(c) (CFString) -> CFString
@@ -37,14 +37,14 @@ extension UIDevice {
     public var kernOSType: String {
         var size: Int = 256
         var ostype = [UInt8](repeating: 0, count: 256)
-        ostype.withUnsafeMutableBufferPointer { sysctlbyname("kern.ostype", $0.baseAddress, &size, nil, 0) }
+        _ = ostype.withUnsafeMutableBufferPointer { sysctlbyname("kern.ostype", $0.baseAddress, &size, nil, 0) }
         return String(cString: ostype)
     }
     
     public var kernOSRelease: String {
         var size: Int = 256
         var ostype = [UInt8](repeating: 0, count: 256)
-        ostype.withUnsafeMutableBufferPointer { sysctlbyname("kern.release", $0.baseAddress, &size, nil, 0) }
+        _ = ostype.withUnsafeMutableBufferPointer { sysctlbyname("kern.osrelease", $0.baseAddress, &size, nil, 0) }
         return String(cString: ostype)
     }
     

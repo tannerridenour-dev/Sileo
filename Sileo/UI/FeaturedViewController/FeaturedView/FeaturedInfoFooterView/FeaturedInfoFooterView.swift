@@ -8,14 +8,13 @@
 
 import Foundation
 
-@objc(FeaturedInfoFooterView)
 class FeaturedInfoFooterView: FeaturedBaseView {
     let label: UILabel
     
-    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor) {
+    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor, isActionable: Bool) {
         label = UILabel(frame: .zero)
         
-        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor)
+        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isActionable: isActionable)
         
         label.textAlignment = .center
         self.addSubview(label)

@@ -9,7 +9,7 @@
 import Foundation
 import UIKit
 
-class FlaggedSourceWarningViewController: UIViewController {
+class FlaggedSourceWarningViewController: SileoViewController {
     @IBOutlet weak var titleLabel: UILabel!
     @IBOutlet weak var bodyLabel: UILabel!
     @IBOutlet weak var safetyButton: UIButton!
@@ -20,10 +20,15 @@ class FlaggedSourceWarningViewController: UIViewController {
     @IBOutlet weak var scrollHairlineView: UIView!
     @IBOutlet weak var scrollHairlineConstraint: NSLayoutConstraint!
     
-    @objc var shouldAddAnywayCallback: (() -> Void)?
+    var shouldAddAnywayCallback: (() -> Void)?
+    
+    var url: URL?
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        self.statusBarStyle = .lightContent
+        
         safetyButton.layer.cornerRadius = 8
         
         titleLabel.text = String(localizationKey: "Dangerous_Repo.Title")
@@ -34,18 +39,26 @@ class FlaggedSourceWarningViewController: UIViewController {
                                                       attributes: [NSAttributedString.Key.paragraphStyle: paragraphStyle])
         continueButton.setTitle(String(localizationKey: "Dangerous_Repo.Continue"), for: .normal)
         safetyButton.setTitle(String(localizationKey: "Dangerous_Repo.Cancel"), for: .normal)
+        
+        if UIScreen.main.bounds.width < 350 {
+            bodyLabel.font = UIFont.systemFont(ofSize: 14)
+        }
     }
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         
-        UIApplication.shared.statusBarStyle = .lightContent
         scrollHairlineConstraint.constant = 1 / view.window!.screen.scale
     }
     
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+    }
+    
     func presentLastChanceAlert() {
+        let urlString = url?.absoluteString ?? "this repo"
         let lastChanceAlert = UIAlertController(title: String(localizationKey: "Dangerous_Repo.Last_Chance.Title"),
-                                                message: String(localizationKey: "Dangerous_Repo.Last_Chance.Body"),
+                                                message: String(format: String(localizationKey: "Dangerous_Repo.Last_Chance.Body"), urlString),
                                                 preferredStyle: .alert)
         
         lastChanceAlert.addAction(.init(title: String(localizationKey: "Dangerous_Repo.Last_Chance.Cancel"),

@@ -17,7 +17,7 @@ extension URL {
         #if TARGET_SANDBOX || targetEnvironment(simulator)
         return prefix.isEmpty || self.scheme?.lowercased().hasPrefix(prefix) == true
         #else
-        let expectedScheme = prefix.isEmpty ? String(format: "%@-https", prefix.lowercased()) : "https"
+        let expectedScheme = prefix.isEmpty ? "https" : String(format: "%@-https", prefix.lowercased())
         return expectedScheme == self.scheme?.lowercased()
         #endif
     }

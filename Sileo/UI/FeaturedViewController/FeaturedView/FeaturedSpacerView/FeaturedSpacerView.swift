@@ -9,16 +9,15 @@
 
 import Foundation
 
-@objc(FeaturedSpacerView)
 class FeaturedSpacerView: FeaturedBaseView {
     let spacing: CGFloat
     
-    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor) {
+    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor, isActionable: Bool) {
         guard let spacing = dictionary["spacing"] as? CGFloat else {
             return nil
         }
         self.spacing = spacing
-        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor)
+        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isActionable: isActionable)
     }
     
     required public init?(coder aDecoder: NSCoder) {

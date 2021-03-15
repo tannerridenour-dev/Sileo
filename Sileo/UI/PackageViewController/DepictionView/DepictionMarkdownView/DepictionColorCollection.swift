@@ -14,6 +14,9 @@ public struct DepictionColorCollection: ColorCollection {
     public var heading1 = DownColor.sileoLabel
     public var heading2 = DownColor.sileoLabel
     public var heading3 = DownColor.sileoLabel
+    public var heading4 = DownColor.sileoLabel
+    public var heading5 = DownColor.sileoLabel
+    public var heading6 = DownColor.sileoLabel
     public var body = DownColor.sileoLabel
     public var code = DownColor.sileoLabel
     public var link = DownColor.systemBlue

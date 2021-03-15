@@ -8,7 +8,7 @@
 
 import Foundation
 
-class CategoryViewController: UITableViewController, UIViewControllerPreviewingDelegate {
+class CategoryViewController: SileoTableViewController {
     public var repoContext: Repo?
     
     private var categories: [String]?
@@ -18,6 +18,7 @@ class CategoryViewController: UITableViewController, UIViewControllerPreviewingD
     private var bannersView: FeaturedBannersView?
     
     private var headerStackView: UIStackView?
+    private var authenticationBannerView: PaymentAuthenticationBannerView?
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -25,16 +26,13 @@ class CategoryViewController: UITableViewController, UIViewControllerPreviewingD
         self.navigationItem.largeTitleDisplayMode = .never
 
         self.tableView.backgroundColor = .sileoBackgroundColor
+        self.tableView.separatorColor = .sileoSeparatorColor
         
-        if UIColor.useSileoColors {
-            self.tableView.separatorColor = .sileoSeparatorColor
-        
-            weak var weakSelf: CategoryViewController? = self
-            NotificationCenter.default.addObserver(weakSelf as Any,
-                                                   selector: #selector(CategoryViewController.updateSileoColors),
-                                                   name: UIColor.sileoDarkModeNotification,
-                                                   object: nil)
-        }
+        weak var weakSelf = self
+        NotificationCenter.default.addObserver(weakSelf as Any,
+                                               selector: #selector(updateSileoColors),
+                                               name: SileoThemeManager.sileoChangedThemeNotification,
+                                               object: nil)
         
         self.reloadData()
         
@@ -57,13 +55,20 @@ class CategoryViewController: UITableViewController, UIViewControllerPreviewingD
         self.registerForPreviewing(with: self, sourceView: self.tableView)
     }
     
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        updateSileoColors()
+    }
+    
     @objc func updateSileoColors() {
         self.tableView.separatorColor = .sileoSeparatorColor
         self.tableView.backgroundColor = .sileoBackgroundColor
+        self.statusBarStyle = .default
     }
     
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        self.tableView.backgroundColor = .sileoBackgroundColor
+        updateSileoColors()
     }
     
     @objc func reloadData() {
@@ -96,6 +101,29 @@ class CategoryViewController: UITableViewController, UIViewControllerPreviewingD
             }
         }
         if let repoContext = repoContext {
+            PaymentManager.shared.getPaymentProvider(for: repoContext) { _, provider in
+                self.authenticationBannerView?.removeFromSuperview()
+                guard let provider = provider,
+                    !provider.isAuthenticated else {
+                    return
+                }
+                provider.fetchInfo(fromCache: true) { _, info in
+                    guard let info = info,
+                    let banner = info["authentication_banner"] as? [String: String] else {
+                        return
+                    }
+                    DispatchQueue.main.async {
+                        self.authenticationBannerView?.removeFromSuperview()
+                        let authenticationBannerView = PaymentAuthenticationBannerView(provider: provider,
+                                                                                       bannerDictionary: banner,
+                                                                                       viewController: self)
+                        self.headerStackView?.insertArrangedSubview(authenticationBannerView, at: 0)
+                        self.authenticationBannerView = authenticationBannerView
+                        self.updateHeaderStackView()
+                    }
+                }
+            }
+            
             guard let featuredURL = repoContext.url?.appendingPathComponent("sileo-featured.json") else {
                 return
             }
@@ -113,7 +141,7 @@ class CategoryViewController: UITableViewController, UIViewControllerPreviewingD
                 }
                 self.featuredBannerData = depiction
                 DispatchQueue.main.async {
-                    guard let tableHeaderView = FeaturedBannersView.view(dictionary: depiction, viewController: self, tintColor: nil) else {
+                    guard let tableHeaderView = FeaturedBannersView.view(dictionary: depiction, viewController: self, tintColor: nil, isActionable: false) else {
                         return
                     }
                     let newHeight = tableHeaderView.depictionHeight(width: self.view.bounds.width)
@@ -220,7 +248,9 @@ class CategoryViewController: UITableViewController, UIViewControllerPreviewingD
         let packageListVC = self.controller(indexPath: indexPath)
         self.navigationController?.pushViewController(packageListVC, animated: true)
     }
-    
+}
+
+extension CategoryViewController: UIViewControllerPreviewingDelegate {
     func previewingContext(_ previewingContext: UIViewControllerPreviewing, viewControllerForLocation location: CGPoint) -> UIViewController? {
         if location.y <= self.tableView.tableHeaderView?.bounds.height ?? 0 {
             return nil
@@ -234,5 +264,23 @@ class CategoryViewController: UITableViewController, UIViewControllerPreviewingD
     
     func previewingContext(_ previewingContext: UIViewControllerPreviewing, commit viewControllerToCommit: UIViewController) {
         self.navigationController?.pushViewController(viewControllerToCommit, animated: false)
+    }
+}
+
+@available (iOS 13, *)
+extension CategoryViewController {
+    override func tableView(_ tableView: UITableView, contextMenuConfigurationForRowAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
+        let categoryVC = self.controller(indexPath: indexPath)
+        return UIContextMenuConfiguration(identifier: indexPath as NSIndexPath, previewProvider: {
+            categoryVC
+        }, actionProvider: nil)
+    }
+    
+    override func tableView(_ tableView: UITableView, willPerformPreviewActionForMenuWith configuration: UIContextMenuConfiguration, animator: UIContextMenuInteractionCommitAnimating) {
+        if let controller = animator.previewViewController {
+            animator.addAnimations {
+                self.show(controller, sender: self)
+            }
+        }
     }
 }

@@ -218,7 +218,7 @@ class APTWrapper {
             return (false, 0, "")
         }
         
-        //let packageName = statusParts[1]
+        // let packageName = statusParts[1]
         
         guard let rawProgress = Double(statusParts[2]) else {
             return (false, 0, "")
@@ -259,7 +259,7 @@ class APTWrapper {
                     continue
                 }
                 
-                //let sig = sigComponents[2]
+                // let sig = sigComponents[2]
                 let digestType = sigComponents[9]
                 
                 guard let digestIdx = Int(digestType),
@@ -280,7 +280,7 @@ class APTWrapper {
                                         removals: [DownloadPackage],
                                         progressCallback: @escaping (Double, Bool, String) -> Void,
                                         outputCallback: @escaping (String, Int) -> Void,
-                                        completionCallback: @escaping (Int, FINISH) -> Void) {
+                                        completionCallback: @escaping (Int, FINISH, Bool) -> Void) {
         guard let giveMeRootPath = Bundle.main.path(forAuxiliaryExecutable: "giveMeRoot") else {
             fatalError("Unable to find giveMeRoot")
         }
@@ -315,7 +315,7 @@ class APTWrapper {
             var pipestderr: [Int32] = [0, 0]
             var pipesileo: [Int32] = [0, 0]
             
-            var bufsiz = Int(BUFSIZ)
+            let bufsiz = Int(BUFSIZ)
             
             pipe(&pipestdout)
             pipe(&pipestderr)
@@ -524,6 +524,7 @@ class APTWrapper {
             var status: Int32 = 0
             waitpid(pid, &status, 0)
             
+            var refreshSileo = false
             if runUICache {
                 progressCallback(99, true, "Updating icon cache...")
                 outputCallback("Updating Icon Cache\n", debugFD)
@@ -544,14 +545,18 @@ class APTWrapper {
                 
                 for appName in diff.keys {
                     let appPath = URL(fileURLWithPath: "/Applications/").appendingPathComponent(appName)
-                    
-                    spawn(command: "/usr/bin/uicache", args: ["uicache", "-p", appPath.path])
+                    NSLog("[Sileo] App Path = \(appPath.path)")
+                    if appPath.path == Bundle.main.bundlePath {
+                        refreshSileo = true
+                    } else {
+                        spawn(command: "/usr/bin/uicache", args: ["uicache", "-p", appPath.path])
+                    }
                 }
             }
             
             spawnAsRoot(command: "/usr/bin/apt-get clean")
             
-            completionCallback(Int(status), finish)
+            completionCallback(Int(status), finish, refreshSileo)
         }
     }
 }

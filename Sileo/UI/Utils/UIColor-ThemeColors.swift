@@ -11,92 +11,54 @@ import Foundation
 extension UIColor {
     static var isTransitionLockedForiOS13Bug: Bool = false //Fucking Apple QA/QC
     
-    private static var misDarkModeEnabled: Bool = false
-    
-    @objc static var isDarkModeEnabled: Bool {
-        get {
+    static var isDarkModeEnabled: Bool {
+        if SileoThemeManager.shared.currentTheme.preferredUserInterfaceStyle == .dark {
+            return true
+        } else if SileoThemeManager.shared.currentTheme.preferredUserInterfaceStyle == .system {
             if #available(iOS 13, *) {
-                if let window = UIApplication.shared.keyWindow {
-                    return window.traitCollection.userInterfaceStyle == .dark
-                } else if !UIApplication.shared.windows.isEmpty {
-                    return UIApplication.shared.windows[0].traitCollection.userInterfaceStyle == .dark
+                if UITraitCollection.current.userInterfaceStyle == .dark {
+                    return true
                 }
-                return false
-            }
-            return misDarkModeEnabled
-        }
-        set {
-            guard #available(iOS 13, *) else {
-                misDarkModeEnabled = newValue
-                return
             }
         }
+        return false
     }
     
-    @objc static let sileoDarkModeNotification = Notification.Name(rawValue: "SileoDarkModeNotification")
-    
-    static var sileoLabel: UIColor {
+    static var sileoBackgroundColor: UIColor {
         if #available(iOS 13, *) {
-            return .label
+            return SileoThemeManager.shared.currentTheme.backgroundColor ?? .systemBackground
         }
-        if isDarkModeEnabled {
-            return .white
-        }
-        return .black
-    }
-    
-    @objc static var useSileoColors: Bool {
-        if #available(iOS 13, *) {
-            return false
-        }
-        return true
-    }
-    
-    @objc static var sileoBackgroundColor: UIColor {
-        if isDarkModeEnabled {
-            return UIColor(red: 28/255, green: 28/255, blue: 30/255, alpha: 1)
-        } else {
-            return .white
-        }
+        return SileoThemeManager.shared.currentTheme.backgroundColor ?? .white
     }
     
     static var sileoContentBackgroundColor: UIColor {
-        if isDarkModeEnabled {
-            return UIColor(red: 60/255, green: 60/255, blue: 60/255, alpha: 1)
-        } else {
-            return UIColor(red: 245/255, green: 245/255, blue: 245/255, alpha: 1)
+        SileoThemeManager.shared.currentTheme.secondaryBackgroundColor ?? UIColor(white: 245/255, alpha: 1)
+    }
+        
+    static var sileoLabel: UIColor {
+        if #available(iOS 13, *) {
+            return SileoThemeManager.shared.currentTheme.labelColor ?? .label
         }
+        return SileoThemeManager.shared.currentTheme.labelColor ?? .black
     }
     
     static var sileoHighlightColor: UIColor {
-        if isDarkModeEnabled {
-            return UIColor(white: 0.2, alpha: 1)
-        } else {
-            return UIColor(white: 0.9, alpha: 1)
-        }
+        SileoThemeManager.shared.currentTheme.highlightColor ?? UIColor(white: 0.9, alpha: 1)
     }
     
-    static var sileoSeparatorColor: UIColor {       
-        if isDarkModeEnabled {
-            return UIColor(red: 71.0/255.0, green: 71.0/255.0, blue: 73.0/255.0, alpha: 1)
-        } else {
-            return UIColor(red: 234.0/255.0, green: 234.0/255.0, blue: 236.0/255.0, alpha: 1)
-        }
+    static var sileoSeparatorColor: UIColor {
+        SileoThemeManager.shared.currentTheme.seperatorColor ?? UIColor(red: 234.0/255.0, green: 234.0/255.0, blue: 236.0/255.0, alpha: 1)
     }
     
+    static var sileoHeaderColor: UIColor {
+        SileoThemeManager.shared.currentTheme.headerColor ?? UIColor(red: 0.898, green: 0.98, blue: 1, alpha: 0.5)
+    }
+        
     static var sileoBannerColor: UIColor {
-        if isDarkModeEnabled {
-            return UIColor(red: 0.059, green: 0.004, blue: 0, alpha: 1)
-        } else {
-            return UIColor(red: 0.941, green: 0.996, blue: 1, alpha: 1)
-        }
+        SileoThemeManager.shared.currentTheme.bannerColor ?? UIColor(red: 0.941, green: 0.996, blue: 1, alpha: 1)
     }
     
-    @objc static var sileoHeaderColor: UIColor {
-        if isDarkModeEnabled {
-            return UIColor(red: 0.02, green: 0.1, blue: 0.2, alpha: 0.5)
-        } else {
-            return UIColor(red: 0.898, green: 0.98, blue: 1, alpha: 0.5)
-        }
+    static var tintColor: UIColor {
+        SileoThemeManager.shared.tintColor
     }
 }

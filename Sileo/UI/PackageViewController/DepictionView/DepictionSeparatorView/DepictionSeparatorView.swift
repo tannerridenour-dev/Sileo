@@ -9,24 +9,21 @@
 
 import Foundation
 
-@objc(DepictionSeparatorView)
 class DepictionSeparatorView: DepictionBaseView {
     private var separatorView: UIView?
 
-    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor) {
+    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor, isActionable: Bool) {
         separatorView = UIView(frame: .zero)
 
-        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor)
+        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isActionable: isActionable)
         separatorView?.backgroundColor = .sileoSeparatorColor
         addSubview(separatorView!)
         
-        weak var weakSelf: DepictionSeparatorView? = self
-        if UIColor.useSileoColors {
-            NotificationCenter.default.addObserver(weakSelf as Any,
-                                                   selector: #selector(DepictionSeparatorView.updateSileoColors),
-                                                   name: UIColor.sileoDarkModeNotification,
-                                                   object: nil)
-        }
+        weak var weakSelf = self
+        NotificationCenter.default.addObserver(weakSelf as Any,
+                                               selector: #selector(updateSileoColors),
+                                               name: SileoThemeManager.sileoChangedThemeNotification,
+                                               object: nil)
     }
 
     required public init?(coder aDecoder: NSCoder) {
@@ -34,7 +31,7 @@ class DepictionSeparatorView: DepictionBaseView {
     }
 
     @objc func updateSileoColors() {
-        separatorView?.backgroundColor = UIColor.sileoSeparatorColor
+        separatorView?.backgroundColor = .sileoSeparatorColor
     }
     
     override func depictionHeight(width: CGFloat) -> CGFloat {

@@ -8,7 +8,7 @@
 
 import Foundation
 
-class SourcesViewController: UITableViewController {
+class SourcesViewController: SileoTableViewController {
     private var sortedRepoList: [Repo] = []
     
     required init?(coder: NSCoder) {
@@ -62,15 +62,13 @@ class SourcesViewController: UITableViewController {
         
         self.title = String(localizationKey: "Sources_Page")
         
-        if UIColor.useSileoColors {
-            self.tableView.backgroundColor = .sileoBackgroundColor
-            
-            weak var weakSelf: SourcesViewController? = self
-            NotificationCenter.default.addObserver(weakSelf as Any,
-                                                   selector: #selector(SourcesViewController.updateSileoColor),
-                                                   name: UIColor.sileoDarkModeNotification,
-                                                   object: nil)
-        }
+        self.tableView.backgroundColor = .sileoBackgroundColor
+        
+        weak var weakSelf = self
+        NotificationCenter.default.addObserver(weakSelf as Any,
+                                               selector: #selector(updateSileoColors),
+                                               name: SileoThemeManager.sileoChangedThemeNotification,
+                                               object: nil)
         
         self.tableView.separatorInset = UIEdgeInsets(top: 72, left: 0, bottom: 0, right: 0)
         self.tableView.separatorColor = UIColor(white: 0, alpha: 0.2)
@@ -83,14 +81,19 @@ class SourcesViewController: UITableViewController {
         self.refreshSources(control: nil, forceUpdate: false, forceReload: false)
     }
     
-    @objc func updateSileoColor() {
+    @objc func updateSileoColors() {
         self.tableView.backgroundColor = UIColor.sileoBackgroundColor
+        self.statusBarStyle = .default
     }
     
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        if #available(iOS 13, *) {
-            self.tableView.backgroundColor = .sileoBackgroundColor
-        }
+        updateSileoColors()
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        updateSileoColors()
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -137,7 +140,7 @@ class SourcesViewController: UITableViewController {
     func refreshSources(control: UIRefreshControl?, forceUpdate: Bool, forceReload: Bool) {
         let repoManager = RepoManager.shared
         
-        let item = self.navigationController?.tabBarItem
+        let item = self.splitViewController?.tabBarItem
         item?.badgeValue = ""
         
         let badge = item?.view()?.value(forKey: "_badge") as? UIView
@@ -155,7 +158,7 @@ class SourcesViewController: UITableViewController {
             self.refreshControl?.endRefreshing()
             indicatorView.removeFromSuperview()
             indicatorView.stopAnimating()
-            self.navigationController?.tabBarItem.badgeValue = nil
+            self.splitViewController?.tabBarItem.badgeValue = nil
             
             if errorsFound {
                 DispatchQueue.main.async {
@@ -196,7 +199,7 @@ class SourcesViewController: UITableViewController {
     
     func reSortList() {
         sortedRepoList = RepoManager.shared.repoList.sorted(by: { obj1, obj2 -> Bool in
-            obj1.repoName.compare(obj2.repoName) == .orderedAscending
+            obj1.repoName.localizedCaseInsensitiveCompare(obj2.repoName) == .orderedAscending
         })
     }
     
@@ -249,7 +252,7 @@ class SourcesViewController: UITableViewController {
                                                         
                                                         if let repoURL = addSourceController.textFields?[0].text,
                                                             let url = URL(string: repoURL) {
-                                                            self.handleSourceAdd(urls: [url])
+                                                            self.handleSourceAdd(urls: [url], bypassFlagCheck: false)
                                                         }
         }))
         self.present(addSourceController, animated: true, completion: nil)
@@ -273,7 +276,7 @@ class SourcesViewController: UITableViewController {
         autoPasteboardSourceController.addAction(UIAlertAction(title: addButtonText,
                                                                style: .default,
                                                                handler: { _ in
-                                                                self.handleSourceAdd(urls: sources)
+                                                                self.handleSourceAdd(urls: sources, bypassFlagCheck: false)
                                                                 self.dismiss(animated: true, completion: nil)
         }))
         autoPasteboardSourceController.addAction(UIAlertAction(title: String(localizationKey: "Auto_Add_Pasteboard_Sources.Button.Manual"),
@@ -300,11 +303,69 @@ class SourcesViewController: UITableViewController {
         }
     }
     
-    func handleSourceAdd(urls: [URL]) {
-        RepoManager.shared.addRepos(with: urls)
-        self.reloadData()
+    func isSourceFlagged(_ url: URL, completion: @escaping (Bool) -> Void) throws {
+        let apiURL = URL(string: "https://flagged-repo-api.getsileo.app/flagged")!
+        let requestDict = ["url": url.absoluteString]
+        let requestJSON = try JSONSerialization.data(withJSONObject: requestDict, options: [])
+
+        var request = URLRequest(url: apiURL)
+        request.setValue("application/json; charset=UTF-8", forHTTPHeaderField: "Content-Type")
+        request.httpMethod = "POST"
+        request.httpBody = requestJSON
         
-        self.refreshSources(control: nil, forceUpdate: false, forceReload: false)
+        URLSession.shared.dataTask(with: request) { (data: Data?, _, error: Error?) in
+            if let data = data, error == nil {
+                let isBanned = String(data: data, encoding: .utf8)
+                return completion(isBanned == "true")
+            }
+            print("Failed to check for flagged repo with error: \(error?.localizedDescription ?? "")")
+            return completion(false)
+        }.resume()
+    }
+    
+    func showFlaggedSourceWarningController(url: URL) {
+        let flaggedSourceController = FlaggedSourceWarningViewController(nibName: "FlaggedSourceWarningViewController", bundle: nil)
+        flaggedSourceController.shouldAddAnywayCallback = {
+            self.handleSourceAdd(urls: [url], bypassFlagCheck: true)
+            self.refreshSources(control: nil, forceUpdate: false, forceReload: false)
+        }
+        flaggedSourceController.url = url
+        flaggedSourceController.modalPresentationStyle = .formSheet
+
+         present(flaggedSourceController, animated: true)
+    }
+
+     func handleSourceAdd(urls: [URL], bypassFlagCheck: Bool) {
+        if !bypassFlagCheck {
+            for url in urls {
+                do {
+                    try isSourceFlagged(url) { isFlagged in
+                        DispatchQueue.main.async {
+                            if isFlagged {
+                                return self.showFlaggedSourceWarningController(url: url)
+                            }
+
+                             RepoManager.shared.addRepos(with: [url])
+                            self.reloadData()
+
+                             self.refreshSources(control: nil, forceUpdate: false, forceReload: false)
+                        }
+                    }
+                } catch {
+                    print("Failed to check if source is flagged.")
+
+                     RepoManager.shared.addRepos(with: [url])
+                    self.reloadData()
+
+                     self.refreshSources(control: nil, forceUpdate: false, forceReload: false)
+                }
+            }
+        } else {
+            RepoManager.shared.addRepos(with: urls)
+            self.reloadData()
+
+             self.refreshSources(control: nil, forceUpdate: false, forceReload: false)
+        }
     }
 }
 
@@ -440,10 +501,9 @@ extension SourcesViewController { //UITableViewDelegate
     }
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        tableView.deselectRow(at: indexPath, animated: true)
-        
         let categoryVC = self.controller(indexPath: indexPath)
-        self.navigationController?.pushViewController(categoryVC, animated: true)
+        let navController = SileoNavigationController(rootViewController: categoryVC)
+        self.splitViewController?.showDetailViewController(navController, sender: self)
     }
 }
 
@@ -458,6 +518,7 @@ extension SourcesViewController: UIViewControllerPreviewingDelegate {
     }
     
     func previewingContext(_ previewingContext: UIViewControllerPreviewing, commit viewControllerToCommit: UIViewController) {
-        self.navigationController?.pushViewController(viewControllerToCommit, animated: false)
+        let navController = SileoNavigationController(rootViewController: viewControllerToCommit)
+        self.splitViewController?.showDetailViewController(navController, sender: self)
     }
 }

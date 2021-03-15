@@ -9,7 +9,8 @@
 
 import Foundation
 
-@objc public protocol DepictionViewDelegate {
+// swiftlint:disable:next class_delegate_protocol
+public protocol DepictionViewDelegate: NSObject {
     func subviewHeightChanged()
 }
 
@@ -17,12 +18,14 @@ public protocol DepictionViewProtocol: DepictionViewDelegate {
     func depictionHeight(width: CGFloat) -> CGFloat
 }
 
-@objc(DepictionBaseView)
 open class DepictionBaseView: UIView, DepictionViewProtocol {
     internal var parentViewController: UIViewController?
     public weak var delegate: DepictionViewDelegate?
+    internal var defaultTintColor: UIColor?
+    private(set) var isActionable: Bool
+    public var isHighlighted: Bool = false
 
-    class func view(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor?) -> DepictionBaseView? {
+    class func view(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor?, isActionable: Bool) -> DepictionBaseView? {
         guard var className = dictionary["class"] as? String else {
             return nil
         }
@@ -33,8 +36,8 @@ open class DepictionBaseView: UIView, DepictionViewProtocol {
                 className = "DepictionMarkdownViewSlow"
             }
         }
-
-        guard let rawclass = NSClassFromString(className) as? DepictionBaseView.Type else {
+        
+        guard let rawclass = Bundle.main.classNamed("Sileo.\(className)") as? DepictionBaseView.Type else {
             return nil
         }
 
@@ -47,12 +50,14 @@ open class DepictionBaseView: UIView, DepictionViewProtocol {
             tintColor = UIColor(css: tintColorStr) ?? UINavigationBar.appearance().tintColor
         }
 
-        return rawclass.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor)
+        return rawclass.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isActionable: isActionable)
     }
 
-    required public init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor) {
+    required public init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor, isActionable: Bool) {
         parentViewController = viewController
 
+        self.defaultTintColor = tintColor
+        self.isActionable = isActionable
         super.init(frame: CGRect(x: 0, y: 0, width: 320, height: 480))
         self.tintColor = tintColor
     }

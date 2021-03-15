@@ -13,13 +13,13 @@ class SourcesTableViewCell: BaseSubtitleTableViewCell {
         didSet {
             if let repo = repo {
                 self.title = repo.isLoaded ? repo.displayName : nil
-                self.subtitle = repo.repoURL
+                self.subtitle = repo.displayURL
                 self.icon = repo.repoIcon
                 self.progress = repo.totalProgress
             } else {
                 self.title = String(localizationKey: "All_Packages.Title")
                 self.subtitle = String(localizationKey: "All_Packages.Cell_Subtitle")
-                self.icon = nil
+                self.icon = UIImage(named: "All Packages")
                 self.progress = 0
             }
         }

@@ -8,8 +8,8 @@
 
 import Foundation
 
-#if TARGET_SANDBOX || targetEnvironment(simulator)
-#warning("Building for Sandboxed target. Many features will not be available")
+#if targetEnvironment(simulator) || TARGET_SANDBOX
+#warning("Building for Sandboxed target. Many featuers will not be available")
 #endif
 
 UIApplicationMain(CommandLine.argc,

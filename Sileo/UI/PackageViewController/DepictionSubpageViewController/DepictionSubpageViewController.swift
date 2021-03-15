@@ -62,7 +62,7 @@ class DepictionSubpageViewController: UIViewController {
                     }
                 }
 
-                guard let depictionView = DepictionBaseView.view(dictionary: depiction, viewController: self, tintColor: nil) else {
+                guard let depictionView = DepictionBaseView.view(dictionary: depiction, viewController: self, tintColor: nil, isActionable: false) else {
                     return
                 }
 

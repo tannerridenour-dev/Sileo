@@ -7,10 +7,9 @@
 //
 
 import Foundation
-import WebKit
 import SafariServices
+import WebKit
 
-@objc(DepictionWebView)
 class DepictionWebView: DepictionBaseView {
     let alignment: Int
 
@@ -19,7 +18,7 @@ class DepictionWebView: DepictionBaseView {
     let width: CGFloat
     let height: CGFloat
 
-    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor) {
+    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor, isActionable: Bool) {
         guard let urlStr = dictionary["URL"] as? String else {
             return nil
         }
@@ -41,22 +40,22 @@ class DepictionWebView: DepictionBaseView {
             return nil
         }
 
-        var urlWhitelisted = false
+        var urlAllowed = false
         let host = url.host ?? ""
 
         if host.hasSuffix("youtube.com") {
-            urlWhitelisted = true
+            urlAllowed = true
         }
         if host.hasSuffix("vimeo.com") {
-            urlWhitelisted = true
+            urlAllowed = true
         }
-        guard urlWhitelisted else {
+        guard urlAllowed else {
             return nil
         }
 
         webView = WKWebView(frame: .zero)
 
-        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor)
+        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isActionable: isActionable)
 
         webView?.load(URLRequest(url: url))
         webView?.scrollView.isScrollEnabled = false
@@ -125,10 +124,9 @@ extension DepictionWebView: WKUIDelegate {
 
 extension DepictionWebView: WKNavigationDelegate {
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        if let url = navigationAction.request.url,
-            navigationAction.navigationType == .linkActivated || navigationAction.navigationType == .formSubmitted {
+        if navigationAction.navigationType == .linkActivated || navigationAction.navigationType == .formSubmitted {
             var presentModally = false
-            guard let newViewController = URLManager.viewController(url: url,
+            guard let newViewController = URLManager.viewController(url: navigationAction.request.url,
                                                                     isExternalOpen: false,
                                                                     presentModally: &presentModally) else {
                 decisionHandler(.cancel)

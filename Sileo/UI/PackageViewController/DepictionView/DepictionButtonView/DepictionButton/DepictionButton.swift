@@ -10,8 +10,17 @@ import Foundation
 import SafariServices
 
 class DepictionButton: UIButton {
+    var isLink: Bool = false
+    var depictionView: DepictionBaseView?
+    
     override var isHighlighted: Bool {
         didSet {
+            if isLink {
+                self.backgroundColor = .clear
+                depictionView?.isHighlighted = isHighlighted
+                return
+            }
+            
             if isHighlighted {
                 var tintHue: CGFloat = 0
                 var tintSat: CGFloat = 0
@@ -53,7 +62,12 @@ class DepictionButton: UIButton {
                 subpageController.depictionURL = URL(string: String(action.dropFirst(10)))
                 parentViewController?.navigationController?.pushViewController(subpageController, animated: true)
             } else if url.isSecure(prefix: "form") {
-                fatalError("Form not implemented")
+                if let formController = DepictionFormViewController(nibName: "DepictionFormViewController", bundle: nil) {
+                    formController.formURL = URL(string: String(action.dropFirst(5)))
+                    let navController = UINavigationController(rootViewController: formController)
+                    navController.modalPresentationStyle = .formSheet
+                    parentViewController?.present(navController, animated: true, completion: nil)
+                }
             } else {
                 var presentModally = false
                 if let controller = URLManager.viewController(url: url, isExternalOpen: true, presentModally: &presentModally) {

@@ -17,7 +17,7 @@ public enum DownloadManagerQueue: Int {
     case none
 }
 
-class DownloadManager: NSObject {
+final class DownloadManager {
     static let reloadNotification = Notification.Name("SileoDownloadManagerReloaded")
     static let lockStateChangeNotification = Notification.Name("SileoDownloadManagerLockStateChanged")
     
@@ -71,14 +71,12 @@ class DownloadManager: NSObject {
     private var queueLockCount = 0
     private var queueLock = DispatchSemaphore(value: 1)
     
-    var repoDownloadOverrideProviders: [String: Set<NSObject>] = [:]
+    var repoDownloadOverrideProviders: [String: Set<AnyHashable>] = [:]
     
     var viewController: DownloadsTableViewController
     
-    override init() {
+    init() {
         viewController = DownloadsTableViewController(nibName: "DownloadsTableViewController", bundle: nil)
-        
-        super.init()
     }
     
     public func downloadingPackages() -> Int {
@@ -185,7 +183,10 @@ class DownloadManager: NSObject {
     
     public func startUnqueuedDownloads() {
         self.lockQueue()
-        defer { self.unlockQueue() }
+        defer {
+            self.unlockQueue()
+            self.startMoreDownloads()
+        }
         
         let allRawDownloads = upgrades + installations + installdeps
         
@@ -212,12 +213,16 @@ class DownloadManager: NSObject {
                 if self.verify(download: download) {
                     download.progress = 1
                     download.success = true
+                    download.queued = false
+                    download.completed = true
                 } else {                    
                     self.overrideDownloadURL(package: package, repo: packageRepo) { errorMessage, url in
                         if url == nil && errorMessage != nil {
                             download.failureReason = errorMessage
                             download.success = false
                             download.progress = 0
+                            download.queued = false
+                            download.completed = true
                             // this hurts :(
                             DispatchQueue.main.async {
                                 self.viewController.reloadDownload(package: download.package)
@@ -227,14 +232,7 @@ class DownloadManager: NSObject {
                         }
                         
                         let downloadURL = url ?? URL(string: filename)
-                        download.backgroundTask = UIApplication.shared.beginBackgroundTask(expirationHandler: {
-                            download.task?.cancel()
-                            if let backgroundTaskIdentifier = download.backgroundTask {
-                                UIApplication.shared.endBackgroundTask(backgroundTaskIdentifier)
-                            }
-                            download.backgroundTask = nil
-                        })
-                        download.task = RepoManager.shared.fetch(from: downloadURL,
+                        download.task = RepoManager.shared.queue(from: downloadURL,
                                                                  progress: { progress, completedUnitCount, totalUnitCount in
                                                                     download.progress = progress
                                                                     download.totalBytesWritten = completedUnitCount
@@ -246,6 +244,7 @@ class DownloadManager: NSObject {
                             let attributes = try? FileManager.default.attributesOfItem(atPath: fileURL.path)
                             let fileSize = attributes?[FileAttributeKey.size] as? Int
                             let fileSizeStr = String(format: "%ld", fileSize ?? 0)
+                            download.completed = true
                             if !package.package.contains("/") && (fileSizeStr != package.size) {
                                 download.failureReason = String(format: String(localizationKey: "Download_Size_Mismatch", type: .error),
                                                                 package.size ?? "nil", fileSizeStr)
@@ -278,8 +277,10 @@ class DownloadManager: NSObject {
                                 UIApplication.shared.endBackgroundTask(backgroundTaskIdentifier)
                             }
                             download.backgroundTask = nil
+                            self.startMoreDownloads()
                         }, failure: { statusCode in
                             download.success = false
+                            download.completed = true
                             download.failureReason = String(format: String(localizationKey: "Download_Failing_Status_Code", type: .error), statusCode)
                             DispatchQueue.main.async {
                                 self.viewController.reloadDownload(package: download.package)
@@ -290,6 +291,7 @@ class DownloadManager: NSObject {
                                 UIApplication.shared.endBackgroundTask(backgroundTaskIdentifier)
                             }
                             download.backgroundTask = nil
+                            self.startMoreDownloads()
                         })
                     }
                 }
@@ -304,6 +306,40 @@ class DownloadManager: NSObject {
             }
         }
         queuedRemovals.removeAll()
+    }
+    
+    func startMoreDownloads() {
+        var downloadCount: [String: Int] = [:]
+        
+        self.lockQueue()
+        defer { self.unlockQueue() }
+        
+        let allRawDownloads = upgrades + installations + installdeps
+        
+        for dlPackage in allRawDownloads {
+            let package = dlPackage.package
+            if let download = downloads[package.package],
+               let host = download.task?.request?.url?.host {
+                let hostCount = downloadCount[host] ?? 0
+                if download.queued && !download.completed {
+                    if hostCount < 2 {
+                        download.queued = false
+                        download.backgroundTask = UIApplication.shared.beginBackgroundTask(expirationHandler: {
+                            download.task?.cancel()
+                            if let backgroundTaskIdentifier = download.backgroundTask {
+                                UIApplication.shared.endBackgroundTask(backgroundTaskIdentifier)
+                            }
+                            download.backgroundTask = nil
+                        })
+                        
+                        download.task?.resume()
+                        downloadCount[host] = hostCount + 1
+                    }
+                } else if !download.queued && !download.completed {
+                    downloadCount[host] = hostCount + 1
+                }
+            }
+        }
     }
     
     public func download(package: String) -> Download? {
@@ -333,6 +369,11 @@ class DownloadManager: NSObject {
         let destURL = URL(fileURLWithPath: destFileName)
         
         if !FileManager.default.fileExists(atPath: destFileName) {
+            if package.package.contains("/") {
+                cloneFileAsRoot(from: URL(fileURLWithPath: package.package), to: URL(fileURLWithPath: destFileName))
+                return FileManager.default.fileExists(atPath: destFileName)
+            }
+            
             return false
         }
         
@@ -424,7 +465,7 @@ class DownloadManager: NSObject {
         let installationsAndUpgrades = self.installations + self.upgrades
         
         DependencyResolverAccelerator.shared.getDependencies(install: installationsAndUpgrades, remove: uninstallations)
-        
+       
         #if !TARGET_SANDBOX && !targetEnvironment(simulator)
         let depOperations = APTWrapper.packageOperations(installs: installationsAndUpgrades, removals: uninstallations)
         
@@ -488,7 +529,7 @@ class DownloadManager: NSObject {
         installdeps.append(contentsOf: installDeps)
         uninstalldeps.append(contentsOf: uninstallDeps)
         
-        if let errorsList = depOperations["Err"] as? [[String: Any]] {
+        if let errorsList = depOperations["Err"] {
             errors.append(contentsOf: errorsList)
         }
         #endif
@@ -661,6 +702,23 @@ class DownloadManager: NSObject {
         queueLock.signal()
     }
     
+    public func register(downloadOverrideProvider: DownloadOverrideProviding, repo: Repo) {
+        if repoDownloadOverrideProviders[repo.repoURL] == nil {
+            repoDownloadOverrideProviders[repo.repoURL] = Set()
+        }
+        repoDownloadOverrideProviders[repo.repoURL]?.insert(downloadOverrideProvider.hashableObject)
+    }
+    
+    public func deregister(downloadOverrideProvider: DownloadOverrideProviding, repo: Repo) {
+        repoDownloadOverrideProviders[repo.repoURL]?.remove(downloadOverrideProvider.hashableObject)
+    }
+    
+    public func deregister(downloadOverrideProvider: DownloadOverrideProviding) {
+        for keyVal in repoDownloadOverrideProviders {
+            repoDownloadOverrideProviders[keyVal.key]?.remove(downloadOverrideProvider.hashableObject)
+        }
+    }
+    
     private func overrideDownloadURL(package: Package, repo: Repo?, completionHandler: @escaping (String?, URL?) -> Void) {
         guard let repo = repo else {
             return completionHandler(nil, nil)
@@ -670,7 +728,28 @@ class DownloadManager: NSObject {
             return completionHandler(nil, nil)
         }
         
-        // No providers offered an override URL for this download
-        completionHandler(nil, nil)
+        // The number of providers checked so far
+        var checked = 0
+        let total = providers.count
+        for obj in providers {
+            guard let downloadProvider = obj as? DownloadOverrideProviding else {
+                continue
+            }
+            var willProvideURL = false
+            willProvideURL = downloadProvider.downloadURL(for: package, from: repo, completionHandler: { errorMessage, url in
+                // Ensure that this provider didn't say no and then try to call the completion handler
+                if willProvideURL {
+                    completionHandler(errorMessage, url)
+                }
+            })
+            checked += 1
+            if willProvideURL {
+                break
+            } else if checked >= total {
+                // No providers offered an override URL for this download
+                completionHandler(nil, nil)
+            }
+        }
+        
     }
 }

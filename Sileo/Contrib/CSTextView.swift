@@ -14,11 +14,11 @@ protocol CSTextViewActionHandler {
 
 class CSTextView: UIView, CSTextViewActionHandler {
     public var attributedText: NSAttributedString? {
-        set {
-            renderView.attributedText = newValue
-        }
         get {
             renderView.attributedText
+        }
+        set {
+            renderView.attributedText = newValue
         }
     }
     

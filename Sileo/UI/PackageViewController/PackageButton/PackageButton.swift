@@ -29,6 +29,12 @@ class PackageButton: UIButton {
         self.widthAnchor.constraint(greaterThanOrEqualToConstant: 70).isActive = true
         tintColor = UINavigationBar.appearance().tintColor
         self.updateStyle()
+        
+        weak var weakSelf = self
+        NotificationCenter.default.addObserver(weakSelf as Any,
+                                               selector: #selector(updateSileoColors),
+                                               name: SileoThemeManager.sileoChangedThemeNotification,
+                                               object: nil)
     }
     
     override func layoutSubviews() {
@@ -50,12 +56,17 @@ class PackageButton: UIButton {
         }
     }
     
-    private var _tintColor: UIColor = .black
+    private var _tintColor: UIColor = .tintColor
     
     override var tintColor: UIColor! {
         didSet {
             _tintColor = tintColor
         }
+    }
+    
+    @objc func updateSileoColors() {
+        self.tintColor = .tintColor
+        self.backgroundColor = .tintColor
     }
     
     public func updateStyle() {
@@ -95,13 +106,14 @@ class PackageButton: UIButton {
                 }
                 UIView.addKeyframe(withRelativeStartTime: 0.2, relativeDuration: 0.6) {
                     super.setTitle(title, for: state)
-                    self.layoutIfNeeded()
                 }
                 UIView.addKeyframe(withRelativeStartTime: 0.8, relativeDuration: 0.2) {
                     self.titleLabel?.isHidden = false
                     self.titleLabel?.alpha = 1
                 }
-            }, completion: nil)
+            }, completion: ((Bool) -> Void)? {_ in
+                    self.layoutIfNeeded()
+            })
         }
     }
 }

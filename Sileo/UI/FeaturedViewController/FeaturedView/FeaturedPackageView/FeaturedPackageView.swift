@@ -8,8 +8,7 @@
 
 import SDWebImage
 
-@objc(FeaturedPackageView)
-class FeaturedPackageView: FeaturedBaseView, UIViewControllerPreviewingDelegate {
+class FeaturedPackageView: FeaturedBaseView, PackageQueueButtonDataProvider {
     let imageView: PackageIconView
     let titleLabel, authorLabel, versionLabel: UILabel
     
@@ -24,7 +23,7 @@ class FeaturedPackageView: FeaturedBaseView, UIViewControllerPreviewingDelegate 
     
     var isUpdatingPurchaseStatus: Bool = false
     
-    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor) {
+    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor, isActionable: Bool) {
         guard let package = dictionary["package"] as? String else {
             return nil
         }
@@ -54,7 +53,7 @@ class FeaturedPackageView: FeaturedBaseView, UIViewControllerPreviewingDelegate 
         
         separatorView = UIView(frame: .zero)
         
-        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor)
+        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isActionable: isActionable)
         
         imageView.image = UIImage(named: "Tweak Icon")
         imageView.widthAnchor.constraint(equalTo: imageView.heightAnchor).isActive = true
@@ -78,10 +77,11 @@ class FeaturedPackageView: FeaturedBaseView, UIViewControllerPreviewingDelegate 
         titleStackView.axis = .vertical
         titleStackView.setCustomSpacing(4, after: authorLabel)
         
+        packageButton.shouldCheckPurchaseStatus = true
         if let buttonText = dictionary["buttonText"] as? String {
             packageButton.overrideTitle = buttonText
         }
-        packageButton.package = PackageListManager.shared.newestPackage(identifier: package)
+        packageButton.dataProvider = self
         packageButton.viewControllerForPresentation = viewController
         packageButton.setContentHuggingPriority(.required, for: .horizontal)
         
@@ -100,20 +100,14 @@ class FeaturedPackageView: FeaturedBaseView, UIViewControllerPreviewingDelegate 
         if useSeparator {
             let separatorView = UIView(frame: .zero)
             separatorView.translatesAutoresizingMaskIntoConstraints = false
-            if #available(iOS 13, *) {
-                separatorView.backgroundColor = .separator
-            } else {
-                separatorView.backgroundColor = .sileoSeparatorColor
-            }
+            separatorView.backgroundColor = .sileoSeparatorColor
             self.addSubview(separatorView)
             
-            weak var weakSelf: FeaturedPackageView? = self
-            if UIColor.useSileoColors {
-                NotificationCenter.default.addObserver(weakSelf as Any,
-                                                       selector: #selector(FeaturedPackageView.updateSileoColors),
-                                                       name: UIColor.sileoDarkModeNotification,
-                                                       object: nil)
-            }
+            weak var weakSelf = self
+            NotificationCenter.default.addObserver(weakSelf as Any,
+                                                   selector: #selector(updateSileoColors),
+                                                   name: SileoThemeManager.sileoChangedThemeNotification,
+                                                   object: nil)
             
             self.separatorView = separatorView
             
@@ -130,25 +124,21 @@ class FeaturedPackageView: FeaturedBaseView, UIViewControllerPreviewingDelegate 
         self.accessibilityLabel = String(format: String(localizationKey: "Package_By_Author"), titleLabel.text ?? "", authorLabel.text ?? "")
         self.accessibilityTraits = .button
         
-        DispatchQueue.global(qos: .default).async {
-            PackageListManager.shared.waitForReady()
-            DispatchQueue.main.async {
-                if let package = PackageListManager.shared.newestPackage(identifier: self.package) {
-                    self.versionLabel.text = String(format: "%@ · %@", package.version, self.repoName)
-                    if self.packageButton.package == nil {
-                        self.packageButton.package = package
-                    }
-                } else {
-                    self.versionLabel.text = String(localizationKey: "Package_Unavailable")
-                }
-            }
-        }
-        
         let tap = UITapGestureRecognizer(target: self, action: #selector(FeaturedPackageView.openDepiction))
         tap.delaysTouchesBegan = false
         self.addGestureRecognizer(tap)
         
         viewController.registerForPreviewing(with: self, sourceView: self)
+        if #available(iOS 13, *) {
+            let interaction = UIContextMenuInteraction(delegate: self)
+            self.addInteraction(interaction)
+        }
+        
+        self.reloadPackage()
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(FeaturedPackageView.reloadPackage),
+                                               name: PackageListManager.reloadNotification,
+                                               object: nil)
     }
     
     required public init?(coder aDecoder: NSCoder) {
@@ -202,19 +192,6 @@ class FeaturedPackageView: FeaturedBaseView, UIViewControllerPreviewingDelegate 
         }
     }
     
-    func previewingContext(_ previewingContext: UIViewControllerPreviewing, viewControllerForLocation location: CGPoint) -> UIViewController? {
-        if let package = PackageListManager.shared.newestPackage(identifier: self.package) {
-            let packageViewController = PackageViewController(nibName: "PackageViewController", bundle: nil)
-            packageViewController.package = package
-            return packageViewController
-        }
-        return nil
-    }
-    
-    func previewingContext(_ previewingContext: UIViewControllerPreviewing, commit viewControllerToCommit: UIViewController) {
-        self.parentViewController?.navigationController?.pushViewController(viewControllerToCommit, animated: false)
-    }
-    
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesBegan(touches, with: event)
         self.highlighted = true
@@ -233,6 +210,23 @@ class FeaturedPackageView: FeaturedBaseView, UIViewControllerPreviewingDelegate 
     public var highlighted: Bool = false {
         didSet {
             self.backgroundColor = highlighted ? .sileoHighlightColor : nil
+        }
+    }
+    
+    @objc public func reloadPackage() {
+        DispatchQueue.global(qos: .default).async {
+            PackageListManager.shared.waitForReady()
+            DispatchQueue.main.async {
+                self.packageButton.package = PackageListManager.shared.newestPackage(identifier: self.package)
+                if let package = PackageListManager.shared.newestPackage(identifier: self.package) {
+                    self.versionLabel.text = String(format: "%@ · %@", package.version, self.repoName)
+                    if self.packageButton.package == nil {
+                        self.packageButton.package = package
+                    }
+                } else {
+                    self.versionLabel.text = String(localizationKey: "Package_Unavailable")
+                }
+            }
         }
     }
     
@@ -256,6 +250,70 @@ class FeaturedPackageView: FeaturedBaseView, UIViewControllerPreviewingDelegate 
         
         guard let repo = package.sourceRepo else {
             return
+        }
+        
+        PaymentManager.shared.getPaymentProvider(for: repo) { error, provider in
+            if error != nil {
+                let info = PaymentPackageInfo(price: "Paid", purchased: isPurchased, available: true)
+                DispatchQueue.main.async {
+                    self.isUpdatingPurchaseStatus = false
+                    self.packageButton.paymentInfo = info
+                }
+            }
+            provider?.getPackageInfo(forIdentifier: self.package) { error, info in
+                var info = info
+                if error != nil {
+                    info = PaymentPackageInfo(price: "Paid", purchased: isPurchased, available: true)
+                }
+                DispatchQueue.main.async {
+                    self.isUpdatingPurchaseStatus = false
+                    if let info = info {
+                        self.packageButton.paymentInfo = info
+                    }
+                }
+            }
+        }
+    }
+}
+
+extension FeaturedPackageView: UIViewControllerPreviewingDelegate {
+    func previewingContext(_ previewingContext: UIViewControllerPreviewing, viewControllerForLocation location: CGPoint) -> UIViewController? {
+        if let package = PackageListManager.shared.newestPackage(identifier: self.package) {
+            let packageViewController = PackageViewController(nibName: "PackageViewController", bundle: nil)
+            packageViewController.package = package
+            return packageViewController
+        }
+        return nil
+    }
+    
+    func previewingContext(_ previewingContext: UIViewControllerPreviewing, commit viewControllerToCommit: UIViewController) {
+        self.parentViewController?.navigationController?.pushViewController(viewControllerToCommit, animated: false)
+    }
+}
+
+@available(iOS 13.0, *)
+extension FeaturedPackageView: UIContextMenuInteractionDelegate {
+    func contextMenuInteraction(_ interaction: UIContextMenuInteraction, configurationForMenuAtLocation location: CGPoint) -> UIContextMenuConfiguration? {
+        if let package = PackageListManager.shared.newestPackage(identifier: self.package) {
+            let packageViewController = PackageViewController(nibName: "PackageViewController", bundle: nil)
+            packageViewController.package = package
+            
+            let actions = packageViewController.actions()
+            
+            return UIContextMenuConfiguration(identifier: nil, previewProvider: {
+                packageViewController
+            }, actionProvider: {_ in
+                UIMenu(title: "", image: nil, options: .displayInline, children: actions)
+            })
+        }
+        return nil
+    }
+    
+    func contextMenuInteraction(_ interaction: UIContextMenuInteraction, willPerformPreviewActionForMenuWith configuration: UIContextMenuConfiguration, animator: UIContextMenuInteractionCommitAnimating) {
+        if let controller = animator.previewViewController {
+            animator.addAnimations {
+                self.parentViewController?.show(controller, sender: self)
+            }
         }
     }
 }

@@ -9,14 +9,13 @@
 
 import Foundation
 
-@objc(DepictionStackView)
 class DepictionStackView: DepictionBaseView {
     private var views: [DepictionBaseView] = []
     private var isLandscape: Bool = false
 
     private var xPadding = CGFloat(0)
 
-    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor) {
+    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor, isActionable: Bool) {
         guard let views = dictionary["views"] as? [[String: Any]] else {
             return nil
         }
@@ -34,28 +33,10 @@ class DepictionStackView: DepictionBaseView {
                 return nil
             }
         }
-        
-        if let packageViewController = viewController as? PackageViewController,
-            let repo = packageViewController.package?.sourceRepo,
-            let host = repo.url?.host?.lowercased(),
-            host.contains("nepeta.me") {
-            if dictionary["backgroundColor"] as? String != nil,
-                views.count == 1,
-                let viewClass = views[0]["class"] as? String,
-                (viewClass == "DepictionHeaderView" ||
-                    viewClass == "DepictionSubheaderView" ||
-                    viewClass == "DepictionMarkdownView" ||
-                    viewClass == "DepictionLabelView" ||
-                    viewClass == "DepictionStackView" ||
-                    viewClass == "DepictionTableTextView" ||
-                    viewClass == "DepictionTableButtonView") {
-                return nil
-            }
-        }
 
-        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor)
+        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isActionable: isActionable)
         for viewDict in views {
-            if let view = DepictionBaseView.view(dictionary: viewDict, viewController: viewController, tintColor: tintColor) {
+            if let view = DepictionBaseView.view(dictionary: viewDict, viewController: viewController, tintColor: tintColor, isActionable: isActionable) {
                 self.views.append(view)
                 addSubview(view)
             }
@@ -125,6 +106,16 @@ class DepictionStackView: DepictionBaseView {
                 view.frame = CGRect(x: xPadding, y: y, width: width, height: view.depictionHeight(width: width))
                 view.layoutSubviews()
                 y += view.frame.height
+            }
+        }
+    }
+    
+    override var isHighlighted: Bool {
+        didSet {
+            if isActionable {
+                for view in views {
+                    view.isHighlighted = self.isHighlighted
+                }
             }
         }
     }

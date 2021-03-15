@@ -25,10 +25,12 @@ class TabBarController: UITabBarController {
         downloadsController?.popupItem.title = ""
         downloadsController?.popupItem.subtitle = ""
         
-        if UIColor.useSileoColors {
-            NotificationCenter.default.addObserver(self, selector: #selector(TabBarController.updateSileoColors), name: UIColor.sileoDarkModeNotification, object: nil)
-            self.updateSileoColors()
-        }
+        weak var weakSelf = self
+        NotificationCenter.default.addObserver(weakSelf as Any,
+                                               selector: #selector(updateSileoColors),
+                                               name: SileoThemeManager.sileoChangedThemeNotification,
+                                               object: nil)
+        updateSileoColors()
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -63,11 +65,7 @@ class TabBarController: UITabBarController {
         self.popupInteractionStyle = .drag
         self.presentPopupBar(withContentViewController: downloadsController, animated: true, completion: nil)
         
-        if UIColor.useSileoColors {
-            self.updateSileoColors()
-        } else {
-            self.traitCollectionDidChange(nil)
-        }
+        self.updateSileoColors()
     }
     
     func dismissPopup() {
@@ -167,23 +165,17 @@ class TabBarController: UITabBarController {
     }
     
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        if #available(iOS 13, *) {
-            if self.traitCollection.userInterfaceStyle == .dark {
-                self.popupBar.systemBarStyle = .black
-            } else {
-                self.popupBar.systemBarStyle = .default
-            }
-            self.popupBar.toolbar.barStyle = UIBarStyle(rawValue: Int(self.popupBar.barStyle.rawValue)) ?? .default
-        }
+        updateSileoColors()
     }
     
     @objc func updateSileoColors() {
         if UIColor.isDarkModeEnabled {
             self.popupBar.systemBarStyle = .black
+            self.popupBar.toolbar.barStyle = .black
         } else {
             self.popupBar.systemBarStyle = .default
+            self.popupBar.toolbar.barStyle = .default
         }
-        self.popupBar.toolbar.barStyle = UIBarStyle(rawValue: Int(self.popupBar.barStyle.rawValue)) ?? .default
     }
     
     override func viewDidLayoutSubviews() {

@@ -15,12 +15,12 @@ class PaymentProfileHeaderView: UIView, SettingsHeaderViewDisplayable {
     private var nameLabel: UILabel = UILabel()
     private var emailLabel: UILabel = UILabel()
     
-    public var info: NSDictionary? {
+    public var info: [String: Any]? {
         didSet {
             self.updateDisplay()
         }
     }
-    public var userInfo: NSDictionary? {
+    public var userInfo: [String: Any]? {
         didSet {
             self.updateDisplay()
         }

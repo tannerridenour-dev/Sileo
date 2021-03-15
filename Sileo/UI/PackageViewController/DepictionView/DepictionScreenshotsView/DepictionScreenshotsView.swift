@@ -9,7 +9,6 @@
 import Foundation
 import AVKit
 
-@objc(DepictionScreenshotsView)
 class DepictionScreenshotsView: DepictionBaseView, UIScrollViewDelegate {
     private let depiction: [String: Any]
     private let scrollView: UIScrollView = UIScrollView(frame: .zero)
@@ -24,11 +23,11 @@ class DepictionScreenshotsView: DepictionBaseView, UIScrollViewDelegate {
 
     private let isPaging: Bool
 
-    convenience required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor) {
-        self.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isPaging: false)
+    convenience required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor, isActionable: Bool) {
+        self.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isPaging: false, isActionable: isActionable)
     }
 
-    @objc required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor, isPaging: Bool) {
+    @objc required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor, isPaging: Bool, isActionable: Bool) {
         var dictionary = dictionary
 
         let deviceName = UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "iphone"
@@ -57,7 +56,7 @@ class DepictionScreenshotsView: DepictionBaseView, UIScrollViewDelegate {
 
         depiction = dictionary
 
-        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor)
+        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isActionable: isActionable)
 
         scrollView.delegate = self
         scrollView.decelerationRate = .fast
@@ -97,7 +96,7 @@ class DepictionScreenshotsView: DepictionBaseView, UIScrollViewDelegate {
                 }
                 if let videoView = videoView {
                     screenshotViews.append(videoView)
-                    self.addSubview(videoView)
+                    scrollView.addSubview(videoView)
                 }
             } else {
                 let screenshotView = UIButton(frame: .zero)

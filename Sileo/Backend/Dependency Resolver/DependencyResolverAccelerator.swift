@@ -12,6 +12,27 @@ class DependencyResolverAccelerator {
     public static let shared = DependencyResolverAccelerator()
     private var dependencyLock = DispatchSemaphore(value: 1)
     private var partialRepoList: [URL: Set<Package>] = [:]
+    private var packageList: Set<Package> = []
+    
+    private var preflightedRepoList: [URL: Set<Package>] = [:]
+    private var preflightedRepos = false
+    
+    public func preflightInstalled() {
+        dependencyLock.wait()
+        
+        preflightedRepos = false
+        
+        partialRepoList = [:]
+        for depPackage in PackageListManager.shared.installedPackages ?? [] {
+            getDependenciesInternal(package: depPackage)
+        }
+        
+        preflightedRepoList = partialRepoList
+        partialRepoList = [:]
+        
+        preflightedRepos = true
+        dependencyLock.signal()
+    }
     
     private var depResolverPrefix: URL {
         #if targetEnvironment(simulator) || TARGET_SANDBOX
@@ -26,9 +47,12 @@ class DependencyResolverAccelerator {
     }
     
     public func getDependencies(install: [DownloadPackage], remove: [DownloadPackage]) {
-        dependencyLock.wait()
+        if !preflightedRepos {
+            preflightInstalled()
+        }
         PackageListManager.shared.waitForReady()
-        partialRepoList = [:]
+        dependencyLock.wait()
+        partialRepoList = preflightedRepoList
         
         #if targetEnvironment(simulator) || TARGET_SANDBOX
         #else
@@ -41,6 +65,11 @@ class DependencyResolverAccelerator {
         for filePath in filePaths {
             try? FileManager.default.removeItem(at: filePath)
         }
+        
+        #if targetEnvironment(simulator) || TARGET_SANDBOX
+        #else
+        spawnAsRoot(command: "cp /var/lib/apt/lists/*Release /var/lib/apt/sileolists/")
+        #endif
         
         for package in install {
             getDependenciesInternal2(package: package.package)
@@ -87,7 +116,6 @@ class DependencyResolverAccelerator {
         if partialRepoList[sourceFileURL]?.contains(package) ?? false {
             return
         }
-        
         partialRepoList[sourceFileURL]?.insert(package)
         
         let packageKeys = ["depends", "pre-depends", "conflicts", "replaces"]
@@ -95,29 +123,23 @@ class DependencyResolverAccelerator {
         for packageKey in packageKeys {
             if let packagesData = package.rawControl[packageKey] {
                 let packageIds = parseDependsString(depends: packagesData)
-                for packageId in packageIds {
-                    for repo in RepoManager.shared.repoList {
+                for repo in RepoManager.shared.repoList {
+                    for packageId in packageIds {
                         if let depPackage = repo.packagesDict?[packageId] {
                             getDependenciesInternal(package: depPackage)
                         }
-                        
-                        for depPackage in repo.packagesProvides ?? [] {
-                            if depPackage.rawControl["provides"]?.contains(packageId) ?? false {
-                                getDependenciesInternal(package: depPackage)
-                            }
-                        }
                     }
                     
-                    for depPackage in PackageListManager.shared.installedPackages ?? [] {
-                        if depPackage.packageID == packageId ||
-                            depPackage.rawControl["provides"]?.contains(packageId) ?? false {
-                            getDependenciesInternal(package: depPackage)
-                        }
-                        
-                        for key in packageKeys {
-                            if depPackage.rawControl[key]?.contains(packageId) ?? false {
-                                getDependenciesInternal(package: depPackage)
+                    for depPackage in repo.packagesProvides ?? [] {
+                        var matchedPkg = false
+                        for packageId in packageIds {
+                            if depPackage.rawControl["provides"]?.contains(packageId) ?? false {
+                                matchedPkg = true
+                                break
                             }
+                        }
+                        if matchedPkg {
+                            getDependenciesInternal(package: depPackage)
                         }
                     }
                 }

@@ -8,7 +8,7 @@
 
 import Foundation
 
-class InstallViewController: UIViewController {
+class InstallViewController: SileoViewController {
     public var progress: Float {
         get {
             progressView?.progress ?? 0
@@ -36,9 +36,12 @@ class InstallViewController: UIViewController {
     var detailsAttributedString: NSMutableAttributedString?
     
     var returnButtonAction: APTWrapper.FINISH = .back
+    var refreshSileo = false
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        self.statusBarStyle = UIDevice.current.userInterfaceIdiom == .pad ? .default : .lightContent
         
         activityIndicatorView?.startAnimating()
         completeButton?.layer.cornerRadius = 10
@@ -110,10 +113,10 @@ class InstallViewController: UIViewController {
                 
                 self.detailsTextView?.scrollRangeToVisible(NSRange(location: detailsAttributedString.string.count - 1, length: 1))
             }
-        }, completionCallback: { _, finish in
+        }, completionCallback: { _, finish, refresh in
             DispatchQueue.main.async {
                 self.returnButtonAction = finish
-                
+                self.refreshSileo = refresh
                 self.setProgress(1, animated: true)
                 self.activityIndicatorView?.stopAnimating()
                 self.progressView?.alpha = 0
@@ -176,6 +179,7 @@ class InstallViewController: UIViewController {
     func updateCompleteButton() {
         switch returnButtonAction {
         case .back:
+            if refreshSileo { completeButton?.setTitle(String(localizationKey: "After_Install_Relaunch"), for: .normal); break }
             completeButton?.setTitle(String(localizationKey: "Done"), for: .normal)
         case .reopen:
             completeButton?.setTitle(String(localizationKey: "After_Install_Relaunch"), for: .normal)
@@ -184,18 +188,18 @@ class InstallViewController: UIViewController {
         case .reboot:
             completeButton?.setTitle(String(localizationKey: "After_Install_Reboot"), for: .normal)
         case .uicache:
-            break
+            if refreshSileo { completeButton?.setTitle(String(localizationKey: "After_Install_Relaunch"), for: .normal); }
         }
     }
     
     @IBAction func completeButtonTapped(_ sender: Any?) {
-        self.navigationController?.popViewController(animated: true)
-        DispatchQueue.global(qos: .default).async {
-            if self.returnButtonAction == .back || self.returnButtonAction == .uicache {
+        if self.returnButtonAction == .back || self.returnButtonAction == .uicache {
+            if self.refreshSileo { spawn(command: "/usr/bin/uicache", args: ["uicache", "-p", Bundle.main.bundlePath]); return }
+            self.navigationController?.popViewController(animated: true)
+            DispatchQueue.global(qos: .default).async {
                 PackageListManager.shared.purgeCache()
-                PackageListManager.shared.loadAllPackages()
+                PackageListManager.shared.waitForReady()
                 DispatchQueue.main.async {
-                    UIApplication.shared.statusBarStyle = .default
                     DownloadManager.shared.lockedForInstallation = false
                     DownloadManager.shared.removeAllItems()
                     
@@ -203,14 +207,14 @@ class InstallViewController: UIViewController {
                     DownloadManager.shared.reloadData(recheckPackages: true)
                     TabBarController.singleton?.dismissPopupController()
                 }
-            } else if self.returnButtonAction == .reopen {
-                exit(0)
-            } else if self.returnButtonAction == .restart || self.returnButtonAction == .reload {
-                spawnAsRoot(command: "sbreload")
-            } else if self.returnButtonAction == .reboot {
-                spawnAsRoot(command: "sync")
-                spawnAsRoot(command: "ldrestart")
             }
+        } else if self.returnButtonAction == .reopen {
+            exit(0)
+        } else if self.returnButtonAction == .restart || self.returnButtonAction == .reload {
+            spawnAsRoot(command: "sbreload \(self.refreshSileo ? "&& uicache \(Bundle.main.bundlePath)" : "")")
+        } else if self.returnButtonAction == .reboot {
+            spawnAsRoot(command: "sync")
+            spawnAsRoot(command: "ldrestart")
         }
     }
     
@@ -222,19 +226,21 @@ class InstallViewController: UIViewController {
         detailsView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         detailsView.frame = self.view.bounds
         
-        UIApplication.shared.statusBarStyle = .lightContent
         self.view.addSubview(detailsView)
         
         self.view.bringSubviewToFront(detailsView)
         UIView.animate(withDuration: 0.25) {
             self.detailsView?.alpha = 1
+            
+            self.statusBarStyle = .lightContent
         }
     }
     
     @IBAction func hideDetails(_ sender: Any?) {
         UIView.animate(withDuration: 0.25, animations: {
-            UIApplication.shared.statusBarStyle = .default
             self.detailsView?.alpha = 0
+            
+            self.statusBarStyle = UIDevice.current.userInterfaceIdiom == .pad ? .default : .lightContent
         }, completion: { _ in
             self.detailsView?.removeFromSuperview()
         })

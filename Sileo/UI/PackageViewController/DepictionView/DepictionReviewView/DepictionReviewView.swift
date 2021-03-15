@@ -8,12 +8,11 @@
 
 import Foundation
 
-@objc(DepictionReviewView)
 class DepictionReviewView: DepictionBaseView {
     private var backgroundView: UIView?
     private var containedReviewView: DepictionBaseView?
 
-    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor) {
+    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor, isActionable: Bool) {
         guard let title = dictionary["title"] as? String else {
             return nil
         }
@@ -23,7 +22,7 @@ class DepictionReviewView: DepictionBaseView {
         guard let markdown = dictionary["markdown"] as? String else {
             return nil
         }
-        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor)
+        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isActionable: isActionable)
 
         let rating: Any = (dictionary["rating"] as? CGFloat) ?? ""
 
@@ -70,11 +69,17 @@ class DepictionReviewView: DepictionBaseView {
         ]
 
         backgroundView = UIView(frame: .zero)
-        backgroundView?.backgroundColor = UIColor(white: 245.0/255.0, alpha: 1.0)
+        backgroundView?.backgroundColor = .sileoContentBackgroundColor
         backgroundView?.layer.cornerRadius = 10
         self.addSubview(backgroundView!)
+        
+        weak var weakSelf = self
+        NotificationCenter.default.addObserver(weakSelf as Any,
+                                               selector: #selector(SileoContentView.updateSileoColors),
+                                               name: SileoThemeManager.sileoChangedThemeNotification,
+                                               object: nil)
 
-        containedReviewView = DepictionBaseView.view(dictionary: subDepiction, viewController: viewController, tintColor: self.tintColor)
+        containedReviewView = DepictionBaseView.view(dictionary: subDepiction, viewController: viewController, tintColor: self.tintColor, isActionable: isActionable)
         self.addSubview(containedReviewView!)
     }
 
@@ -93,5 +98,15 @@ class DepictionReviewView: DepictionBaseView {
         super.layoutSubviews()
         backgroundView?.frame = self.bounds.insetBy(dx: 8, dy: 8)
         containedReviewView?.frame = self.bounds.insetBy(dx: 20, dy: 16)
+    }
+    
+    @objc func updateSileoColors() {
+        backgroundView?.backgroundColor = .sileoContentBackgroundColor
+    }
+    
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        if #available(iOS 13, *) {
+            backgroundView?.backgroundColor = .sileoContentBackgroundColor
+        }
     }
 }

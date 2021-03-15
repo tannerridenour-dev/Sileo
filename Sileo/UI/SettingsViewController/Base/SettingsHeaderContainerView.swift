@@ -76,13 +76,11 @@ class SettingsHeaderContainerView: UIView {
         
         self.colorInfluenceView = colourInfluenceView
         
-        if UIColor.useSileoColors {
-            weak var weakSelf: SettingsHeaderContainerView? = self
-            NotificationCenter.default.addObserver(weakSelf as Any,
-                                                   selector: #selector(updateSileoColors),
-                                                   name: UIColor.sileoDarkModeNotification,
-                                                   object: nil)
-        }
+        weak var weakSelf = self
+        NotificationCenter.default.addObserver(weakSelf as Any,
+                                               selector: #selector(updateSileoColors),
+                                               name: SileoThemeManager.sileoChangedThemeNotification,
+                                               object: nil)
         
         let separatorView: UIView = UIView()
         separatorView.translatesAutoresizingMaskIntoConstraints = false

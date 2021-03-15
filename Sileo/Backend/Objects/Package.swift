@@ -8,7 +8,7 @@
 
 import Foundation
 
-final class Package: Hashable {
+final class Package: Hashable, Equatable {
     public var package: String
     public var packageID: String
     public var name: String?
@@ -17,10 +17,6 @@ final class Package: Hashable {
     public var author: String?
     public var maintainer: String?
     public var section: String?
-    public var conflicts: String?
-    public var depends: String?
-    public var provides: String?
-    public var replaces: String?
     public var packageDescription: String?
     public var legacyDepiction: String?
     public var depiction: String?
@@ -66,7 +62,8 @@ final class Package: Hashable {
     }
     
     func hash(into hasher: inout Hasher) {
-        hasher.combine(guid)
+        hasher.combine(package)
+        hasher.combine(version)
     }
     
     init(package: String, version: String) {

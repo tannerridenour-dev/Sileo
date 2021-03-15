@@ -9,7 +9,7 @@
 import Foundation
 import os
 
-class PackageListViewController: UIViewController, UISearchBarDelegate, UIGestureRecognizerDelegate {
+class PackageListViewController: SileoViewController, UISearchBarDelegate, UIGestureRecognizerDelegate {
     @IBOutlet var collectionView: UICollectionView?
     @IBOutlet var downloadsButton: UIBarButtonItem?
     
@@ -33,6 +33,20 @@ class PackageListViewController: UIViewController, UISearchBarDelegate, UIGestur
     @IBInspectable var localizableTitle: String = ""
     
     var searchController: UISearchController?
+    
+    @objc func updateSileoColors() {
+        self.statusBarStyle = .default
+    }
+    
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        updateSileoColors()
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        updateSileoColors()
+    }
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
@@ -63,7 +77,7 @@ class PackageListViewController: UIViewController, UISearchBarDelegate, UIGestur
                                                                     target: self,
                                                                     action: #selector(PackageListViewController.addTestQueue(_ :)))
             #endif
-            self.navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Export",
+            self.navigationItem.leftBarButtonItem = UIBarButtonItem(title: String(localizationKey: "Export"),
                                                                     style: .plain,
                                                                     target: self,
                                                                     action: #selector(PackageListViewController.exportButtonClicked(_:)))
@@ -90,6 +104,11 @@ class PackageListViewController: UIViewController, UISearchBarDelegate, UIGestur
         NotificationCenter.default.addObserver(self, selector: #selector(self.reloadData),
                                                name: DownloadManager.lockStateChangeNotification,
                                                object: nil)
+        if self.showUpdates {
+            NotificationCenter.default.addObserver(self, selector: #selector(self.reloadUpdates),
+                                                   name: PackageListManager.prefsNotification,
+                                                   object: nil)
+        }
         
         // A value of exactly 17.0 (the default) causes the text to auto-shrink
         UITextField.appearance(whenContainedInInstancesOf: [UISearchBar.self]).defaultTextAttributes = [
@@ -99,7 +118,7 @@ class PackageListViewController: UIViewController, UISearchBarDelegate, UIGestur
         searchController = UISearchController(searchResultsController: nil)
         searchController?.searchBar.placeholder = String(localizationKey: "Package_Search.Placeholder")
         searchController?.searchResultsUpdater = self
-        searchController?.dimsBackgroundDuringPresentation = false
+        searchController?.obscuresBackgroundDuringPresentation = false
         searchController?.hidesNavigationBarDuringPresentation = true
         
         self.navigationController?.navigationBar.superview?.tag = WHITE_BLUR_TAG
@@ -140,18 +159,18 @@ class PackageListViewController: UIViewController, UISearchBarDelegate, UIGestur
         DispatchQueue.global(qos: .default).async {
             if !self.showSearchField {
                 let packageManager = PackageListManager.shared
-                let packageList = packageManager.packagesList(loadIdentifier: self.packagesLoadIdentifier, repoContext: self.repoContext,
+                self.packages = packageManager.packagesList(loadIdentifier: self.packagesLoadIdentifier, repoContext: self.repoContext,
                                                               sortPackages: true, lookupTable: self.searchCache) ?? []
-                self.packages = packageManager.filteredPackagesForDisplay(packageList)
                 self.searchCache[""] = self.packages
             }
             if self.showUpdates {
-                self.availableUpdates = PackageListManager.shared.availableUpdates()
+                self.availableUpdates = PackageListManager.shared.availableUpdates().map({ $0.0 })
             }
             
+            let updatesNotIgnored = self.availableUpdates.filter({ $0.wantInfo != .hold })
             DispatchQueue.main.async {
-                if !self.availableUpdates.isEmpty {
-                    self.navigationController?.tabBarItem.badgeValue = String(format: "%ld", self.availableUpdates.count)
+                if !updatesNotIgnored.isEmpty {
+                    self.navigationController?.tabBarItem.badgeValue = String(format: "%ld", updatesNotIgnored.count)
                 } else {
                     self.navigationController?.tabBarItem.badgeValue = nil
                 }
@@ -218,28 +237,33 @@ class PackageListViewController: UIViewController, UISearchBarDelegate, UIGestur
         searchController?.searchBar.isFirstResponder ?? false
     }
     
-    func controller(indexPath: IndexPath) -> PackageViewController {
+    func controller(package: Package) -> PackageViewController {
         let packageViewController = PackageViewController(nibName: "PackageViewController", bundle: nil)
-        if showUpdates && indexPath.section == 0 {
-            packageViewController.package = availableUpdates[indexPath.row]
-        } else {
-            packageViewController.package = packages[indexPath.row]
-        }
+        packageViewController.package = package
         return packageViewController
+    }
+    
+    func controller(indexPath: IndexPath) -> PackageViewController {
+        if showUpdates && indexPath.section == 0 {
+            return controller(package: availableUpdates[indexPath.row])
+        } else {
+            return controller(package: packages[indexPath.row])
+        }
     }
     
     func searchBarTextDidEndEditing(_ searchBar: UISearchBar) {
     }
     
-    @objc func reloadData() {
-        self.searchCache = [:]
+    @objc func reloadUpdates() {
         if showUpdates {
             DispatchQueue.global(qos: .default).async {
-                self.availableUpdates = PackageListManager.shared.availableUpdates()
+                let rawUpdates = PackageListManager.shared.availableUpdates()
+                self.availableUpdates = rawUpdates.map({ $0.0 })
+                let updatesNotIgnored = rawUpdates.filter({ $0.1?.wantInfo != .hold })
                 DispatchQueue.main.async {
-                    if !self.availableUpdates.isEmpty {
-                        self.navigationController?.tabBarItem.badgeValue = String(format: "%ld", self.availableUpdates.count)
-                        UIApplication.shared.applicationIconBadgeNumber = self.availableUpdates.count
+                    if !updatesNotIgnored.isEmpty {
+                        self.navigationController?.tabBarItem.badgeValue = String(format: "%ld", updatesNotIgnored.count)
+                        UIApplication.shared.applicationIconBadgeNumber = updatesNotIgnored.count
                     } else {
                         self.navigationController?.tabBarItem.badgeValue = nil
                         UIApplication.shared.applicationIconBadgeNumber = 0
@@ -252,6 +276,13 @@ class PackageListViewController: UIViewController, UISearchBarDelegate, UIGestur
                     }
                 }
             }
+        }
+    }
+    
+    @objc func reloadData() {
+        self.searchCache = [:]
+        if showUpdates {
+            self.reloadUpdates()
         } else {
             if let searchController = self.searchController {
                 self.updateSearchResults(for: searchController)
@@ -383,8 +414,6 @@ extension PackageListViewController: UICollectionViewDataSource {
                     headerView.actionText = String(localizationKey: "Upgrade_All_Button")
                     headerView.sortButton?.isHidden = true
                     headerView.separatorView?.isHidden = true
-                    headerView.settingsButton?.isHidden = true
-                    headerView.settingsControl?.isHidden = true
                     headerView.upgradeButton?.addTarget(PackageListManager.shared,
                                                         action: #selector(PackageListManager.markUpgradeAll(_:)),
                                                         for: .touchUpInside)
@@ -400,25 +429,8 @@ extension PackageListViewController: UICollectionViewDataSource {
                     }
                     
                     headerView.separatorView?.isHidden = false
-                    headerView.settingsButton?.isHidden = false
                     
-                    headerView.settingsControl?.isHidden = !displaySettings
-                    
-                    headerView.settingsControl?.removeAllSegments()
-                    if let settingsControl = headerView.settingsControl {
-                        for key in ["Package_Filter_User", "Package_Filter_PowerUser", "Package_Filter_Dev"] {
-                            settingsControl.insertSegment(withTitle: String(localizationKey: key),
-                                                          at: settingsControl.numberOfSegments,
-                                                          animated: false)
-                        }
-                    }
-                    
-                    headerView.settingsButton?.setImage(UIImage(named: displaySettings ? "Filter Filled" : "Filter"), for: .normal)
-                    
-                    headerView.settingsButton?.addTarget(self, action: #selector(PackageListViewController.toggleSettings(_ :)), for: .touchUpInside)
                     headerView.sortButton?.addTarget(self, action: #selector(PackageListViewController.sortPopup(sender:)), for: .touchUpInside)
-                    headerView.settingsControl?.selectedSegmentIndex = UserDefaults.standard.integer(forKey: "userType")
-                    headerView.settingsControl?.addTarget(self, action: #selector(PackageListViewController.changeSettings(_:)), for: .valueChanged)
                 }
                 return headerView
             }
@@ -492,6 +504,30 @@ extension PackageListViewController: UIViewControllerPreviewingDelegate {
     }
 }
 
+@available(iOS 13.0, *)
+extension PackageListViewController {
+    func collectionView(_ collectionView: UICollectionView, contextMenuConfigurationForItemAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
+        let packageViewController = self.controller(indexPath: indexPath)
+        let menuItems = packageViewController.actions()
+
+        return UIContextMenuConfiguration(identifier: nil,
+                                          previewProvider: {
+                                            packageViewController
+                                          },
+                                          actionProvider: { _ in
+                                            UIMenu(title: "", options: .displayInline, children: menuItems)
+                                          })
+    }
+    
+    func collectionView(_ collectionView: UICollectionView, willPerformPreviewActionForMenuWith configuration: UIContextMenuConfiguration, animator: UIContextMenuInteractionCommitAnimating) {
+        if let previewController = animator.previewViewController {
+            animator.addAnimations {
+                self.show(previewController, sender: self)
+            }
+        }
+    }
+}
+
 extension PackageListViewController: UISearchResultsUpdating {
     func updateSearchResults(for searchController: UISearchController) {
         let searchBar = searchController.searchBar
@@ -523,11 +559,9 @@ extension PackageListViewController: UISearchResultsUpdating {
             if let cachedPackages = self.searchCache[query] {
                 packages = cachedPackages
             } else {
-                packages = packageManager.filteredPackagesForDisplay(packageManager.packagesList(loadIdentifier: packagesLoadIdentifier,
-                                                                                                 repoContext: self.repoContext,
-                                                                                                 sortPackages: true,
-                                                                                                 lookupTable: self.searchCache) ?? [])
-                self.searchCache[query] = packages
+                packages = packageManager.packagesList(loadIdentifier: packagesLoadIdentifier, repoContext: self.repoContext, sortPackages: true,
+                                                       lookupTable: self.searchCache ) ?? [Package]()
+                
             }
             self.mutexLock.signal()
             self.mutexLock.wait()

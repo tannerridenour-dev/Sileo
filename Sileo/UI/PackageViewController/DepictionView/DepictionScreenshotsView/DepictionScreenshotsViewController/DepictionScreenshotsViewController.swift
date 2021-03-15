@@ -30,7 +30,7 @@ class DepictionScreenshotsViewController: UIViewController, DepictionViewDelegat
         screenshotsView = DepictionScreenshotsView(dictionary: depiction,
                                                    viewController: self,
                                                    tintColor: tintColor ?? self.view.tintColor,
-                                                   isPaging: true)
+                                                   isPaging: true, isActionable: false)
         screenshotsView?.delegate = self
         self.view.addSubview(screenshotsView!)
         

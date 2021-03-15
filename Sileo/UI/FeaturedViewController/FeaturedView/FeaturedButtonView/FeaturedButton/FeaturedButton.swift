@@ -13,7 +13,11 @@ class FeaturedButton: DepictionButton {
         super.init(frame: frame)
         self.setTitleColor(UIColor(red: 44/255.0, green: 177/255.0, blue: 190/255.0, alpha: 1), for: .normal)
         
-        NotificationCenter.default.addObserver(self, selector: #selector(FeaturedButton.updateHighlight), name: UIColor.sileoDarkModeNotification, object: nil)
+        weak var weakSelf = self
+        NotificationCenter.default.addObserver(weakSelf as Any,
+                                               selector: #selector(updateHighlight),
+                                               name: SileoThemeManager.sileoChangedThemeNotification,
+                                               object: nil)
     }
     
     required init?(coder: NSCoder) {
@@ -25,23 +29,23 @@ class FeaturedButton: DepictionButton {
     }
     
     @objc func updateHighlight() {
-        if #available(iOS 13, *) {
-            if self.traitCollection.userInterfaceStyle == .dark {
-                self.backgroundColor = UIColor(red: 60/255.0, green: 64/255.0, blue: 65/255.0, alpha: 1)
-            } else {
-                self.backgroundColor = UIColor(red: 240/255.0, green: 244/255.0, blue: 245/255.0, alpha: 1)
-            }
-        } else if UIColor.useSileoColors {
-            if UIColor.isDarkModeEnabled {
-                self.backgroundColor = UIColor(red: 60/255.0, green: 64/255.0, blue: 65/255.0, alpha: 1)
-            } else {
-                self.backgroundColor = UIColor(red: 240/255.0, green: 244/255.0, blue: 245/255.0, alpha: 1)
-            }
-        }
-        if isHighlighted {
-            self.setTitleColor(UIColor(red: 44/255.0, green: 177/255.0, blue: 190/255.0, alpha: 1), for: .normal)
+        if isLink {
+            self.backgroundColor = .clear
         } else {
-            self.setTitleColor(UIColor(red: 44/255.0, green: 177/255.0, blue: 190/255.0, alpha: 1), for: .normal)
+            self.backgroundColor = .sileoContentBackgroundColor
+        }
+        
+        if isHighlighted {
+            var tintHue: CGFloat = 0
+            var tintSat: CGFloat = 0
+            var tintBrightness: CGFloat = 0
+            UIColor.tintColor.getHue(&tintHue, saturation: &tintSat, brightness: &tintBrightness, alpha: nil)
+            
+            tintBrightness *= 0.75
+            
+            self.setTitleColor(UIColor(hue: tintHue, saturation: tintSat, brightness: tintBrightness, alpha: 1), for: .normal)
+        } else {
+            self.setTitleColor(.tintColor, for: .normal)
         }
     }
     

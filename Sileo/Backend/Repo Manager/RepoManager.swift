@@ -11,7 +11,6 @@ import SWCompression
 import Alamofire
 
 final class RepoManager {
-
     static let progressNotification = Notification.Name("SileoRepoManagerProgress")
 
     enum RepoHashType: String, CaseIterable {
@@ -40,7 +39,7 @@ final class RepoManager {
     }
     #endif
 
-    init() {        
+    init() {
         #if targetEnvironment(simulator) || TARGET_SANDBOX
         let containerURL = FileManager.default.documentDirectory.deletingLastPathComponent()
         if let contents = try? FileManager.default.contentsOfDirectory(atPath: containerURL.path) {
@@ -57,10 +56,25 @@ final class RepoManager {
         
         #if targetEnvironment(simulator) || TARGET_SANDBOX
         let jailbreakRepoURL: String
+        let jailbreakRepoSuites: String
+        let jailbreakRepoComponents: [String]
         let jailbreakRepoRawEntry: String
         let jailbreakRepoEntryFile: String
-        if kCFCoreFoundationVersionNumber >= 1500 {
+        if kCFCoreFoundationVersionNumber >= 1600 {
+            jailbreakRepoURL = "https://apt.procurs.us/"
+            jailbreakRepoSuites = "iphoneos-arm64/1600"
+            jailbreakRepoComponents = ["main"]
+            jailbreakRepoRawEntry = """
+            Types: deb
+            URIs: https://apt.procurs.us/
+            Suites: iphoneos-arm64/1600
+            Components: main
+            """
+            jailbreakRepoEntryFile = "/etc/apt/sources.list.d/procursus.sources"
+        } else {
             jailbreakRepoURL = "https://repo.chimera.sh/"
+            jailbreakRepoSuites = "./"
+            jailbreakRepoComponents = []
             jailbreakRepoRawEntry = """
             Types: deb
             URIs: https://repo.chimera.sh/
@@ -68,16 +82,13 @@ final class RepoManager {
             Components:
             """
             jailbreakRepoEntryFile = "/etc/apt/sources.list.d/chimera.sources"
-        } else {
-            jailbreakRepoURL = "https://electrarepo64.coolstar.org/"
-            jailbreakRepoRawEntry = "deb https://electrarepo64.coolstar.org/ ./"
-            jailbreakRepoEntryFile = "/etc/apt/sources.list.d/electra.list"
         }
 
         repoListLock.wait()
         let jailbreakRepo = Repo()
         jailbreakRepo.rawURL = jailbreakRepoURL
-        jailbreakRepo.suite = "./"
+        jailbreakRepo.suite = jailbreakRepoSuites
+        jailbreakRepo.components = jailbreakRepoComponents
         jailbreakRepo.rawEntry = jailbreakRepoRawEntry
         jailbreakRepo.entryFile = jailbreakRepoEntryFile
         repoList.append(jailbreakRepo)
@@ -110,7 +121,8 @@ final class RepoManager {
         }
         #else
         var sourcesDir: URL!
-        if FileManager.default.fileExists(atPath: "/etc/apt/sources.list.d/chimera.sources") ||
+        if FileManager.default.fileExists(atPath: "/etc/apt/sources.list.d/procursus.sources") ||
+            FileManager.default.fileExists(atPath: "/etc/apt/sources.list.d/chimera.sources") ||
             FileManager.default.fileExists(atPath: "/etc/apt/sources.list.d/electra.list") {
             sourcesDir = URL(string: "/etc/apt/sources.list.d") } else {
                 sourcesDir = URL(string: "/etc/apt/sileo.list.d")
@@ -141,12 +153,7 @@ final class RepoManager {
             Suites: ./
             Components:
             """
-            repo.entryFile = ""
-            if FileManager.default.fileExists(atPath: "/etc/apt/sources.list.d/chimera.sources") ||
-                FileManager.default.fileExists(atPath: "/etc/apt/sources.list.d/electra.list") {
-                repo.entryFile = "/etc/apt/sources.list.d/sileo.sources" } else {
-                    repo.entryFile = "/etc/apt/sileo.list.d/sileo.sources"
-            }
+            repo.entryFile = "/etc/apt/sources.list.d/sileo.sources"
             
             repoList.append(repo)
             repoListLock.signal()
@@ -183,11 +190,8 @@ final class RepoManager {
         guard types.contains("deb") else { return }
 
         for repoURL in uris {
-            if FileManager.default.fileExists(atPath: "/etc/apt/sources.list.d/chimera.sources") ||
-                FileManager.default.fileExists(atPath: "/etc/apt/sources.list.d/electra.list") {
-                guard !repoURL.localizedCaseInsensitiveContains("apt.bingner.com") else {
-                    continue
-                }
+            guard !repoURL.localizedCaseInsensitiveContains("apt.bingner.com") else {
+                continue
             }
             guard !repoURL.localizedCaseInsensitiveContains("repo.chariz.io"),
                 !hasRepo(with: URL(string: repoURL)!)
@@ -327,6 +331,10 @@ final class RepoManager {
             } else {
                 repo.isIconLoaded = true
                 DispatchQueue.global().async {
+                    if repo.url?.host == "apt.thebigboss.org" {
+                        repo.repoIcon = UIImage(named: "BigBoss")
+                        return
+                    }
                     let scale = Int(UIScreen.main.scale)
                     for i in (1...scale).reversed() {
                         let filename = i == 1 ? "CydiaIcon" : "CydiaIcon@\(i)x"
@@ -340,6 +348,9 @@ final class RepoManager {
                             }
                             break
                         }
+                    }
+                    if repo.repoIcon == nil {
+                        repo.repoIcon = UIImage(named: "Repo Icon")
                     }
                     metadataUpdateGroup.leave()
                 }
@@ -356,7 +367,7 @@ final class RepoManager {
     }
 
     @discardableResult
-    func fetch(
+    func queue(
         from url: URL?,
         progress: ((CGFloat, Int64, Int64) -> Void)?,
         success: @escaping (URL) -> Void,
@@ -367,7 +378,7 @@ final class RepoManager {
             return nil
         }
         
-        let request = URLManager.requestWithHeaders(url: url)        
+        let request = URLManager.urlRequest(url)        
         let downloadTask = AF.download(request)
             .downloadProgress { progressData in
                 progress?(CGFloat(progressData.fractionCompleted), progressData.completedUnitCount, progressData.totalUnitCount)
@@ -382,7 +393,6 @@ final class RepoManager {
                     failure(httpResponse.statusCode)
                 }
             }
-        downloadTask.resume()
         return downloadTask
     }
 
@@ -400,7 +410,7 @@ final class RepoManager {
         } else {
             fullURL = url.appendingPathExtension(extensions[0])
         }
-        fetch(
+        queue(
             from: fullURL,
             progress: progress,
             success: {
@@ -411,7 +421,7 @@ final class RepoManager {
                 guard !newExtensions.isEmpty else { return failure(status) }
                 self.fetch(from: url, withExtensionsUntilSuccess: newExtensions, progress: progress, success: success, failure: failure)
             }
-        )
+        )?.resume()
     }
 
     private func repoRequiresUpdate(_ repo: Repo) -> Bool {
@@ -514,7 +524,7 @@ final class RepoManager {
                     var releaseGPGFileURL: URL?
 
                     let releaseURL = URL(string: repo.repoURL)!.appendingPathComponent("Release")
-                    self.fetch(
+                    let releaseTask = self.queue(
                         from: releaseURL,
                         progress: { progress, _, _ in
                             repo.releaseProgress = progress
@@ -567,12 +577,14 @@ final class RepoManager {
                             self.postProgressNotification(repo)
                         }
                     )
+                    releaseTask?.resume()
 
+                    let startTime = Date()
+                    let refreshTimeout: TimeInterval = isBackground ? 10 : 20
                     if !repo.isFlat { // we have to wait for preferredArch to be determined
-                        if isBackground {
-                            _ = semaphore.wait(timeout: .now() + 20)
-                        } else {
-                            semaphore.wait()
+                        let refreshInterval: DispatchTime = .now() + refreshTimeout
+                        if semaphore.wait(timeout: refreshInterval) != .success {
+                            releaseTask?.cancel()
                         }
                     }
 
@@ -620,7 +632,7 @@ final class RepoManager {
 
                     let releaseGPGFileDst = self.cacheFile(named: "Release.gpg", for: repo)
                     let releaseGPGURL = URL(string: repo.repoURL)!.appendingPathComponent("Release.gpg")
-                    self.fetch(
+                    let releaseGPGTask = self.queue(
                         from: releaseGPGURL,
                         progress: { progress, _, _ in
                             repo.releaseGPGProgress = progress
@@ -642,23 +654,21 @@ final class RepoManager {
                             self.postProgressNotification(repo)
                         }
                     )
+                    releaseGPGTask?.resume()
 
                     // if the repo is flat, then we didn't wait for Release earlier so wait now
                     let numReleaseWaits = repo.isFlat ? 2 : 1
-                    if isBackground {
-                        let startTime = Date()
-                        _ = semaphore.wait(timeout: .now() + 20) // Packages
-
-                        for _ in 0..<numReleaseWaits {
-                            let timeout = 20 - Date().timeIntervalSince(startTime)
-                            _ = semaphore.wait(timeout: .now() + timeout)
-                        }
-                    } else {
-                        semaphore.wait() // Packages
-                        for _ in 0..<numReleaseWaits {
-                            semaphore.wait()
-                        }
+                    
+                    if packages != nil {
+                        let timeout = refreshTimeout - Date().timeIntervalSince(startTime)
+                        _ = semaphore.wait(timeout: .now() + timeout) // Packages
                     }
+                    for _ in 0..<numReleaseWaits {
+                        let timeout = refreshTimeout - Date().timeIntervalSince(startTime)
+                        _ = semaphore.wait(timeout: .now() + timeout)
+                    }
+                    releaseTask?.cancel()
+                    releaseGPGTask?.cancel()
 
                     guard let releaseFile = optReleaseFile else {
                         log("Could not find release file for \(repo.repoURL)", type: .error)
@@ -806,7 +816,7 @@ final class RepoManager {
 
                 if reposUpdated > 0 {
                     PackageListManager.shared.purgeCache()
-                    PackageListManager.shared.loadAllPackages()
+                    PackageListManager.shared.waitForReady()
                 }
 
                 DispatchQueue.main.async {
@@ -859,7 +869,8 @@ final class RepoManager {
         try? rawRepoList.write(to: sourcesURL, atomically: true, encoding: .utf8)
         #else
         var sileoList = ""
-        if FileManager.default.fileExists(atPath: "/etc/apt/sources.list.d/chimera.sources") ||
+        if FileManager.default.fileExists(atPath: "/etc/apt/sources.list.d/procursus.sources") ||
+            FileManager.default.fileExists(atPath: "/etc/apt/sources.list.d/chimera.sources") ||
             FileManager.default.fileExists(atPath: "/etc/apt/sources.list.d/electra.list") {
             sileoList = "/etc/apt/sources.list.d/sileo.sources" } else {
                 sileoList = "/etc/apt/sileo.list.d/sileo.sources"
@@ -867,7 +878,7 @@ final class RepoManager {
         let tempPath = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         do {
             try rawRepoList.write(to: tempPath, atomically: true, encoding: .utf8)
-        } catch let err {
+        } catch {
             return
         }
         spawnAsRoot(command: "cp -f '\(tempPath.path)' '\(sileoList)' && chmod 0644 '\(sileoList)'")

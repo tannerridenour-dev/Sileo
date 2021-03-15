@@ -8,9 +8,9 @@
 
 import Foundation
 
-@objc(DepictionButtonView)
 class DepictionButtonView: DepictionBaseView {
-    private var button: UIButton
+    private var button: DepictionButton
+    private var subView: DepictionBaseView?
 
     private var action: String
     private var backupAction: String
@@ -18,11 +18,9 @@ class DepictionButtonView: DepictionBaseView {
     private var yPadding: CGFloat
 
     private let openExternal: Bool
+    private let isLink: Bool
 
-    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor) {
-        guard let text = dictionary["text"] as? String else {
-            return nil
-        }
+    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor, isActionable: Bool) {
         guard let action = dictionary["action"] as? String else {
             return nil
         }
@@ -35,13 +33,27 @@ class DepictionButtonView: DepictionBaseView {
         backupAction = (dictionary["backupAction"] as? String) ?? ""
 
         openExternal = (dictionary["openExternal"] as? Bool) ?? false
+        
+        isLink = (dictionary["isLink"] as? Bool) ?? false
 
-        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor)
+        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isActionable: isActionable)
 
-        button.setTitle(text, for: .normal)
+        if let rawView = dictionary["view"] as? [String: Any],
+            let view = DepictionBaseView.view(dictionary: rawView, viewController: viewController, tintColor: isLink ? tintColor : .white, isActionable: true) {
+            view.isUserInteractionEnabled = false
+            button.addSubview(view)
+            self.subView = view
+            button.depictionView = view
+        } else if let text = dictionary["text"] as? String {
+            button.setTitle(text, for: .normal)
+        }
         button.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
-        button.layer.cornerRadius = 10
+        if !isLink {
+            button.layer.cornerRadius = 10
+        }
         button.addTarget(self, action: #selector(DepictionButtonView.buttonTapped), for: .touchUpInside)
+        
+        button.isLink = isLink
         self.addSubview(button)
     }
 
@@ -50,14 +62,20 @@ class DepictionButtonView: DepictionBaseView {
     }
 
     override func depictionHeight(width: CGFloat) -> CGFloat {
-        56 + (yPadding * 2)
+        let rawHeight = self.subView?.depictionHeight(width: width) ?? (isLink ? 30 : 40)
+        return rawHeight + (isLink ? 0 : 16) + (yPadding * 2)
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
 
         button.isHighlighted = button.isHighlighted
-        button.frame = self.bounds.insetBy(dx: 8, dy: 8)
+        if isLink {
+            button.frame = self.bounds
+        } else {
+            button.frame = self.bounds.insetBy(dx: 8, dy: 8)
+        }
+        self.subView?.frame = button.bounds
     }
 
     @objc func buttonTapped(_ : Any?) {

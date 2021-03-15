@@ -43,27 +43,25 @@ class BaseSettingsViewController: UITableViewController {
         self.view.addSubview(headerContainerView)
         headerContainerView.layer.zPosition = 1000
         
-        self.view.backgroundColor = UIColor.white
-        self.tableView.separatorColor = UIColor.clear
+        self.view.backgroundColor = .white
+        self.tableView.separatorColor = .clear
         
-        self.tableView.backgroundColor = UIColor.sileoBackgroundColor
+        self.tableView.backgroundColor = .sileoBackgroundColor
         
-        if UIColor.useSileoColors {
-            weak var weakSelf: BaseSettingsViewController? = self
-            NotificationCenter.default.addObserver(weakSelf as Any,
-                                                   selector: #selector(updateSileoColors),
-                                                   name: UIColor.sileoDarkModeNotification,
-                                                   object: nil)
-        }
+        weak var weakSelf = self
+        NotificationCenter.default.addObserver(weakSelf as Any,
+                                               selector: #selector(updateSileoColors),
+                                               name: SileoThemeManager.sileoChangedThemeNotification,
+                                               object: nil)
     }
     
     @objc func updateSileoColors() {
-        self.tableView.backgroundColor = UIColor.sileoBackgroundColor
+        self.tableView.backgroundColor = .sileoBackgroundColor
     }
     
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         if #available(iOS 13, *) {
-            self.tableView.backgroundColor = UIColor.sileoBackgroundColor
+            self.tableView.backgroundColor = .sileoBackgroundColor
         }
     }
 
@@ -73,11 +71,8 @@ class BaseSettingsViewController: UITableViewController {
     
     func layoutHeader() {
         let contentHeight: CGFloat = headerContainerView.contentHeight(forWidth: self.view.bounds.size.width)
-        var minDisplayHeight: CGFloat = 0
-        if #available(iOS 11.0, *) {
-            minDisplayHeight = self.view.safeAreaInsets.top
-        }
-        let maxDisplayHeight: CGFloat = minDisplayHeight + contentHeight
+        let minDisplayHeight = self.view.safeAreaInsets.top
+        let maxDisplayHeight = minDisplayHeight + contentHeight
         
         let pastTop: CGFloat = fmax(0, self.tableView.contentOffset.y + minDisplayHeight)
         let yPos: CGFloat = fmin(-maxDisplayHeight, self.tableView.contentOffset.y) + pastTop
@@ -88,12 +83,8 @@ class BaseSettingsViewController: UITableViewController {
         self.tableView.contentInset = UIEdgeInsets(top: contentHeight, left: 0, bottom: 0, right: 0)
         
         if (headerContainerView.headerView) != nil {
-            var topPart: CGFloat = self.tableView.contentOffset.y
-            if #available(iOS 11.0, *) {
-                topPart += self.tableView.adjustedContentInset.top
-            }
-            
-            let compactProgress: CGFloat = topPart / contentHeight
+            let topPart = self.tableView.contentOffset.y + self.tableView.adjustedContentInset.top
+            let compactProgress = topPart / contentHeight
             self.setTitleViewAlpha((compactProgress / 0.6) - 0.6)
             headerContainerView.headerView?.alpha = 1 - (compactProgress / 0.4)
         } else {
@@ -102,8 +93,10 @@ class BaseSettingsViewController: UITableViewController {
     }
 
     func setTitleViewAlpha(_ alpha: CGFloat) {
-        let color = UIColor.black.withAlphaComponent(alpha)
-        self.navigationController?.navigationBar.titleTextAttributes = [NSAttributedString.Key.foregroundColor: color]
+        let titleColor = SileoThemeManager.shared.currentTheme.labelColor ?? UIColor.black
+        let titleColorWithAlpha = titleColor.withAlphaComponent(alpha)
+        let titleAttributes = [NSAttributedString.Key.foregroundColor: titleColorWithAlpha as Any]
+        self.navigationController?.navigationBar.titleTextAttributes = titleAttributes
     }
 }
 
@@ -140,9 +133,7 @@ extension BaseSettingsViewController { // Data Source Overrides
         
         let labelContainer: UIView = UIView()
         labelContainer.preservesSuperviewLayoutMargins = true
-        if #available(iOS 11.0, *) {
-            labelContainer.insetsLayoutMarginsFromSafeArea = true
-        }
+        labelContainer.insetsLayoutMarginsFromSafeArea = true
         labelContainer.layoutMargins = UIEdgeInsets(top: 16,
                                                     left: labelContainer.layoutMargins.left,
                                                     bottom: 8,

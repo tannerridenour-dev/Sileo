@@ -8,7 +8,7 @@
 
 import Foundation
 
-class FeaturedViewController: UIViewController, UIScrollViewDelegate, FeaturedViewDelegate {
+class FeaturedViewController: SileoViewController, UIScrollViewDelegate, FeaturedViewDelegate {
     private var profileButton: UIButton?
     @IBOutlet var scrollView: UIScrollView?
     @IBOutlet var activityIndicatorView: UIActivityIndicatorView?
@@ -20,6 +20,12 @@ class FeaturedViewController: UIViewController, UIScrollViewDelegate, FeaturedVi
         self.title = String(localizationKey: "Featured_Page")
         
         self.setupProfileButton()
+        
+        weak var weakSelf = self
+        NotificationCenter.default.addObserver(weakSelf as Any,
+                                               selector: #selector(updateSileoColors),
+                                               name: SileoThemeManager.sileoChangedThemeNotification,
+                                               object: nil)
         
         self.reloadData()
         UIView.animate(withDuration: 0.7, animations: {
@@ -115,7 +121,7 @@ class FeaturedViewController: UIViewController, UIScrollViewDelegate, FeaturedVi
                             self.featuredView?.removeFromSuperview()
                             if let featuredView = FeaturedBaseView.view(dictionary: depiction,
                                                                         viewController: self,
-                                                                        tintColor: nil) as? FeaturedBaseView {
+                                                                        tintColor: nil, isActionable: false) as? FeaturedBaseView {
                                 featuredView.delegate = self
                                 self.scrollView?.addSubview(featuredView)
                                 self.featuredView = featuredView
@@ -136,6 +142,21 @@ class FeaturedViewController: UIViewController, UIScrollViewDelegate, FeaturedVi
             self.dismiss(animated: true, completion: nil)
         }))
         self.present(alertController, animated: true, completion: nil)
+    }
+    
+    @objc func updateSileoColors() {
+        statusBarStyle = .default
+        profileButton?.tintColor = .tintColor
+    }
+    
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        updateSileoColors()
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        updateSileoColors()
     }
     
     override func viewDidAppear(_ animated: Bool) {
@@ -164,9 +185,11 @@ class FeaturedViewController: UIViewController, UIScrollViewDelegate, FeaturedVi
     
     func setupProfileButton() {
         let profileButton = UIButton()
-        profileButton.setImage(UIImage(named: "User"), for: .normal)
+        profileButton.setImage(UIImage(named: "User")?.withRenderingMode(.alwaysTemplate), for: .normal)
         profileButton.addTarget(self, action: #selector(FeaturedViewController.showProfile(_:)), for: .touchUpInside)
         profileButton.accessibilityIgnoresInvertColors = true
+        
+        profileButton.tintColor = .tintColor
         
         profileButton.layer.cornerRadius = 20
         profileButton.clipsToBounds = true

@@ -10,11 +10,10 @@ import Foundation
 import GoogleMobileAds
 import AdSupport
 
-@objc(DepictionAdmobView)
 class DepictionAdmobView: DepictionBaseView, GADBannerViewDelegate {
     var bannerView: GADBannerView?
 
-    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor) {
+    required init?(dictionary: [String: Any], viewController: UIViewController, tintColor: UIColor, isActionable: Bool) {
         guard let adUnitID = dictionary["adUnitID"] as? String else {
             return nil
         }
@@ -25,7 +24,7 @@ class DepictionAdmobView: DepictionBaseView, GADBannerViewDelegate {
             }
         }
 
-        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor)
+        super.init(dictionary: dictionary, viewController: viewController, tintColor: tintColor, isActionable: isActionable)
 
         var adSize = kGADAdSizeMediumRectangle
         var adCount = Double(1)

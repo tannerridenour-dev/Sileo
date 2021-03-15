@@ -14,15 +14,15 @@ class URLManager {
         "sileo://package/" + package
     }
     
-    static func requestWithHeaders(url: URL, includingDeviceInfo: Bool = true) -> URLRequest {
+    static func urlRequest(_ url: URL, includingDeviceInfo: Bool = true) -> URLRequest {
         var request = URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 30)
         
-        let cfnetworkVersion = Bundle(identifier: "com.apple.CFNetwork")?.infoDictionary?[kCFBundleVersionKey as String] ?? ""
+        let cfVersion = String(format: "%.3f", kCFCoreFoundationVersionNumber)
         let bundleName = Bundle.main.infoDictionary?[kCFBundleNameKey as String] ?? ""
-        let bundleVersion = Bundle.main.infoDictionary?[kCFBundleVersionKey as String] ?? ""
+        let bundleVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] ?? ""
         let osType = UIDevice.current.kernOSType
         let osRelease = UIDevice.current.kernOSRelease
-        request.setValue("\(bundleName)/\(bundleVersion) CFNetwork/\(cfnetworkVersion) \(osType)/\(osRelease)", forHTTPHeaderField: "User-Agent")
+        request.setValue("\(bundleName)/\(bundleVersion) CoreFoundation/\(cfVersion) \(osType)/\(osRelease)", forHTTPHeaderField: "User-Agent")
         
         if includingDeviceInfo {
             request.setValue(UIDevice.current.platform, forHTTPHeaderField: "X-Machine")
@@ -32,7 +32,11 @@ class URLManager {
         return request
     }
     
-    static func viewController(url: URL, isExternalOpen: Bool, presentModally: inout Bool) -> UIViewController? {
+    static func viewController(url: URL?, isExternalOpen: Bool, presentModally: inout Bool) -> UIViewController? {
+        guard let url = url else {
+            return nil
+        }
+        
         presentModally = false
         
         if url.scheme == "http" || url.scheme == "https" {
@@ -48,7 +52,8 @@ class URLManager {
                     return isExternalOpen ? UINavigationController(rootViewController: packageVC) : packageVC
                 } else {
                     presentModally = true
-                    let alertController = UIAlertController(title: String(format: String(localizationKey: "No_Package.Title", type: .error), url.pathComponents[1]),
+                    let alertController = UIAlertController(title: String(format: String(localizationKey: "No_Package.Title",
+                                                                                         type: .error), url.pathComponents[1]),
                                                             message: String(localizationKey: "No_Package.Body", type: .error),
                                                             preferredStyle: .alert)
                     alertController.addAction(UIAlertAction(title: String(localizationKey: "OK"), style: .cancel, handler: nil))
@@ -77,7 +82,8 @@ class URLManager {
                     return isExternalOpen ? UINavigationController(rootViewController: packageVC) : packageVC
                 } else {
                     presentModally = true
-                    let alertController = UIAlertController(title: String(format: String(localizationKey: "No_Package.Title", type: .error), itemsPackage[1]),
+                    let alertController = UIAlertController(title: String(format: String(localizationKey: "No_Package.Title",
+                                                                                         type: .error), itemsPackage[1]),
                                                             message: String(localizationKey: "No_Package.Body", type: .error),
                                                             preferredStyle: .alert)
                     alertController.addAction(UIAlertAction(title: String(localizationKey: "OK"), style: .cancel, handler: nil))
