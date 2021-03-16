@@ -45,14 +45,8 @@ function finish() {
         echo "finish:${f}" >&${sileo[0]}
 }
 
-rm /etc/apt/sources.list.d/sileo.list 2> /dev/null || true
+rm -f /etc/apt/sources.list.d/sileo.list
 touch $sourcesDir/sileo.sources
-
-cr="\n"
-
-if ! [ -s $sourcesDir/sileo.sources ]; then
-	echo '' > $sourcesDir/sileo.sources
-fi
 
 if grep -Fxq "URIs: https://repounclutter.coolstar.org/" $sourcesDir/sileo.sources ;
 then
@@ -84,6 +78,11 @@ fi
 
 rm -f $sourcesDir/sileo.sources.bak 2> /dev/null || true
 rm -f $sourcesDir/sileo-base.sources.bak 2> /dev/null || true
+
+# be sure not to leave empty file with spaces if all the sources are already added elsewhere
+if ! grep -q '^\s' $sourcesDir/sileo.sources; then
+	echo -n > $sourcesDir/sileo.sources
+fi
 
 finish uicache
 
