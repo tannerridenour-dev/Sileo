@@ -5,7 +5,6 @@ PODS:
   - BitByteData (1.4.3)
   - Cosmos (19.0.3)
   - Down (0.9.4)
-  - Flurry-iOS-SDK/FlurrySDK (11.2.0.rc1)
   - Google-Mobile-Ads-SDK (7.41.0)
   - KeychainAccess (4.2.1)
   - LNZTreeView (1.1.2)
@@ -63,7 +62,6 @@ DEPENDENCIES:
   - AUPickerCell
   - Cosmos (~> 19.0)
   - Down
-  - Flurry-iOS-SDK/FlurrySDK (from `https://github.com/flurry/flurry-ios-sdk.git`, tag `11.2.0.rc1`)
   - Google-Mobile-Ads-SDK (~> 7.41.0)
   - KeychainAccess
   - LNZTreeView
@@ -94,17 +92,11 @@ SPEC REPOS:
 EXTERNAL SOURCES:
   Alderis:
     :git: https://github.com/hbang/Alderis.git
-  Flurry-iOS-SDK:
-    :git: https://github.com/flurry/flurry-ios-sdk.git
-    :tag: 11.2.0.rc1
 
 CHECKOUT OPTIONS:
   Alderis:
     :commit: c0a7869fb69323575ea7b60f699ba77a8e25b970
     :git: https://github.com/hbang/Alderis.git
-  Flurry-iOS-SDK:
-    :git: https://github.com/flurry/flurry-ios-sdk.git
-    :tag: 11.2.0.rc1
 
 SPEC CHECKSUMS:
   Alamofire: 3b6a534a3df22db367e4dedeeca73d1ddfcf0e2f
@@ -113,7 +105,6 @@ SPEC CHECKSUMS:
   BitByteData: 36729e2125ec321935754f9feb1f4b297e00b501
   Cosmos: a6fb17284281fa12cf4c85c2efecd440a215ec44
   Down: 276f2c3eeeaf30345873bdad25f44b2640fcfa3a
-  Flurry-iOS-SDK: 11a46b2a29df8f44b9dad1b0a8b7a7f49d17919e
   Google-Mobile-Ads-SDK: 101ce89b94fdf60ec64ba7b6e9b9d812dc765936
   KeychainAccess: 9b07f665298d13c3a85881bd3171f6f49b8151c1
   LNZTreeView: f04b4a96e5780f5071f8c08b0f6f6554775e46f4

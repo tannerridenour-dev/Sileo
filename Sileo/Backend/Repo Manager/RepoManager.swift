@@ -55,44 +55,6 @@ final class RepoManager {
         #endif
         
         #if targetEnvironment(simulator) || TARGET_SANDBOX
-        let jailbreakRepoURL: String
-        let jailbreakRepoSuites: String
-        let jailbreakRepoComponents: [String]
-        let jailbreakRepoRawEntry: String
-        let jailbreakRepoEntryFile: String
-        if kCFCoreFoundationVersionNumber >= 1600 {
-            jailbreakRepoURL = "https://apt.procurs.us/"
-            jailbreakRepoSuites = "iphoneos-arm64/1600"
-            jailbreakRepoComponents = ["main"]
-            jailbreakRepoRawEntry = """
-            Types: deb
-            URIs: https://apt.procurs.us/
-            Suites: iphoneos-arm64/1600
-            Components: main
-            """
-            jailbreakRepoEntryFile = "/etc/apt/sources.list.d/procursus.sources"
-        } else {
-            jailbreakRepoURL = "https://repo.chimera.sh/"
-            jailbreakRepoSuites = "./"
-            jailbreakRepoComponents = []
-            jailbreakRepoRawEntry = """
-            Types: deb
-            URIs: https://repo.chimera.sh/
-            Suites: ./
-            Components:
-            """
-            jailbreakRepoEntryFile = "/etc/apt/sources.list.d/chimera.sources"
-        }
-
-        repoListLock.wait()
-        let jailbreakRepo = Repo()
-        jailbreakRepo.rawURL = jailbreakRepoURL
-        jailbreakRepo.suite = jailbreakRepoSuites
-        jailbreakRepo.components = jailbreakRepoComponents
-        jailbreakRepo.rawEntry = jailbreakRepoRawEntry
-        jailbreakRepo.entryFile = jailbreakRepoEntryFile
-        repoList.append(jailbreakRepo)
-        repoListLock.signal()
 
         if sourcesURL.exists {
             parseSourcesFile(at: sourcesURL)

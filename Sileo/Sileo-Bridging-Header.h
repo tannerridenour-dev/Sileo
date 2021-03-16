@@ -3,7 +3,6 @@
 //
 
 #import <stdint.h>
-#import <Flurry.h>
 
 #import "UIColor+HTMLColors.h"
 #import "WhiteBlur.h"

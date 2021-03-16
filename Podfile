@@ -18,7 +18,6 @@ def sileo_pods
 	pod 'SwiftSoup'
 	pod 'Google-Mobile-Ads-SDK', '~> 7.41.0'
 	pod 'SWCompression', '~> 4.5'
-	pod 'Flurry-iOS-SDK/FlurrySDK', :git => 'https://github.com/flurry/flurry-ios-sdk.git', :tag => '11.2.0.rc1'
 	pod 'Down'
 	pod 'AUPickerCell'
 	pod 'Alderis', :git => 'https://github.com/hbang/Alderis.git'

@@ -106,35 +106,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UITabBarControllerDelegat
         #if targetEnvironment(simulator) || TARGET_SANDBOX
         let appVer = "2.0.2-demo"
         #else
-        var appVer = "2.0.2"
-        
-        if FileManager.default.fileExists(atPath: "/odyssey/jailbreakd") {
-            appVer = "2.0.2-odyssey"
-        } else if FileManager.default.fileExists(atPath: "/chimera/jailbreakd") {
-            appVer = "2.0.2-chimera"
-        } else if FileManager.default.fileExists(atPath: "/electra/jailbreakd") {
-            appVer = "2.0.2-electra"
-        } else if FileManager.default.fileExists(atPath: "/usr/libexec/libhooker/pspawn_payload.dylib") &&
-            FileManager.default.fileExists(atPath: "/.procursus_strapped") {
-            appVer = "2.0.2-odysseyra1n"
-        } else if FileManager.default.fileExists(atPath: "/usr/libexec/libhooker/pspawn_payload.dylib") {
-            appVer = "2.0.2-libhooker"
-        } else if FileManager.default.fileExists(atPath: "/.procursus_strapped") {
-            appVer = "2.0.2-procursus"
-        } else if FileManager.default.fileExists(atPath: "/var/checkra1n.dmg") {
-            appVer = "2.0.2-checkrain"
-        } else if FileManager.default.fileExists(atPath: "/usr/libexec/substrated") {
-            appVer = "2.0.2-substrate"
-        } else if FileManager.default.fileExists(atPath: "/usr/libexec/substituted") {
-            appVer = "2.0.2-hackyA12"
-        }
+        let appVer = "2.0.2"
         #endif
-        
-        let builder = FlurrySessionBuilder()
-            .withAppVersion(appVer)
-            .withLogLevel(FlurryLogLevelAll)
-            .withCrashReporting(true).withSessionContinueSeconds(10)
-        Flurry.startSession("TSNTB888V4FZTR8F6RHK", with: builder)
     }
     
     func application(_ application: UIApplication, performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
