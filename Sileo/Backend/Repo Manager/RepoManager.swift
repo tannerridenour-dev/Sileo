@@ -824,7 +824,7 @@ final class RepoManager {
         #if targetEnvironment(simulator) || TARGET_SANDBOX
         try? rawRepoList.write(to: sourcesURL, atomically: true, encoding: .utf8)
         #else
-        var sileoList = "/etc/apt/sources.list.d/sileo.sources"
+        let sileoList = "/etc/apt/sources.list.d/sileo.sources"
         let tempPath = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         do {
             try rawRepoList.write(to: tempPath, atomically: true, encoding: .utf8)

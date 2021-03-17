@@ -255,25 +255,7 @@ extension SettingsViewController { // UITableViewDataSource
                 }
                 UIApplication.shared.open(url, options: [:])
             } else if indexPath.row == 1 { // Tint color selector
-                let colorPickerViewController = ColorPickerViewController()
-                colorPickerViewController.delegate = self
-                colorPickerViewController.configuration = ColorPickerConfiguration(color: .tintColor)
-                if UIDevice.current.userInterfaceIdiom == .pad {
-                    if #available(iOS 13.0, *) {
-                        colorPickerViewController.modalPresentationStyle = .popover
-                        colorPickerViewController.popoverPresentationController?.sourceView = self.navigationController?.view
-                    } else {
-                        colorPickerViewController.modalPresentationStyle = .fullScreen
-                    }
-                }
-                
-                self.navigationController?.present(colorPickerViewController, animated: true)
-            } else if indexPath.row == 2 { // Tint color reset
-                SileoThemeManager.shared.resetTintColor()
-            }
-        case 2: // Settings section OR About section
-            if self.showTranslationCreditSection() {
-                if indexPath.row == 1 { // Tint color selector
+                if #available(iOS 12.0, *) {
                     let colorPickerViewController = ColorPickerViewController()
                     colorPickerViewController.delegate = self
                     colorPickerViewController.configuration = ColorPickerConfiguration(color: .tintColor)
@@ -286,6 +268,43 @@ extension SettingsViewController { // UITableViewDataSource
                         }
                     }
                     self.navigationController?.present(colorPickerViewController, animated: true)
+                } else {
+                    let alert = UIAlertController(
+                        title: "Error",
+                        message: "Unsupported on iOS11",
+                        preferredStyle: .alert
+                    )
+                    alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "Default action"), style: .default, handler: nil))
+                    self.navigationController?.present(alert, animated: true)
+                }
+            } else if indexPath.row == 2 { // Tint color reset
+                SileoThemeManager.shared.resetTintColor()
+            }
+        case 2: // Settings section OR About section
+            if self.showTranslationCreditSection() {
+                if indexPath.row == 1 { // Tint color selector
+                    if #available(iOS 12.0, *) {
+                        let colorPickerViewController = ColorPickerViewController()
+                        colorPickerViewController.delegate = self
+                        colorPickerViewController.configuration = ColorPickerConfiguration(color: .tintColor)
+                        if UIDevice.current.userInterfaceIdiom == .pad {
+                            if #available(iOS 13.0, *) {
+                                colorPickerViewController.modalPresentationStyle = .popover
+                                colorPickerViewController.popoverPresentationController?.sourceView = self.navigationController?.view
+                            } else {
+                                colorPickerViewController.modalPresentationStyle = .fullScreen
+                            }
+                        }
+                        self.navigationController?.present(colorPickerViewController, animated: true)
+                    } else {
+                        let alert = UIAlertController(
+                            title: "Error",
+                            message: "Unsupported on iOS11",
+                            preferredStyle: .alert
+                        )
+                        alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "Default action"), style: .default, handler: nil))
+                        self.navigationController?.present(alert, animated: true)
+                    }
                     
                 } else if indexPath.row == 2 { // Tint color reset
                     SileoThemeManager.shared.resetTintColor()

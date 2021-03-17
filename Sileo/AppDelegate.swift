@@ -102,12 +102,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UITabBarControllerDelegat
                 _ = navController.viewControllers[0].view
             }
         }
-        
-        #if targetEnvironment(simulator) || TARGET_SANDBOX
-        let appVer = "2.0.2-demo"
-        #else
-        let appVer = "2.0.2"
-        #endif
     }
     
     func application(_ application: UIApplication, performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
