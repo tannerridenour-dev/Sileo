@@ -45,6 +45,19 @@ function finish() {
         echo "finish:${f}" >&${sileo[0]}
 }
 
+if [[ "$1" == triggered ]]; then
+	# These triggers are only needed by sileo
+	if [[ -z "${SILEO}" ]]; then
+		exit 0;
+	fi
+	if [[ "$2" == "/Applications" ]]; then
+		finish uicache
+        elif [[ "$2" == "/Library/MobileSubstrate/DynamicLibraries" && -n "${SILEO}" ]]; then
+		finish restart
+        fi
+        exit 0
+fi
+
 rm -f /etc/apt/sources.list.d/sileo.list
 touch $sourcesDir/sileo.sources
 
