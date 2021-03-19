@@ -63,14 +63,11 @@ touch $sourcesDir/sileo.sources
 
 if grep -Fxq "URIs: https://repounclutter.coolstar.org/" $sourcesDir/sileo.sources ;
 then
-	echo "Replaced BigBoss+ Repo with valid BigBoss repo"
-	sed  '1{h;$!d} ; 1!{/./{H;$!d}}; x ; s;Types: deb\
+		sed  '1{h;$!d} ; 1!{/./{H;$!d}}; x ; s;Types: deb\
 URIs: https://repounclutter.coolstar.org/\
 Suites: ./\
 Components:.*;Types: deb\
-URIs: http://apt.thebigboss.org/repofiles/cydia/\
-Suites: stable\
-Components: main;' $sourcesDir/sileo.sources
+
 fi
 
 if [ -f "/etc/apt/preferences.d/odyssey" ]; then
@@ -80,10 +77,6 @@ fi
 if [ -f "/etc/apt/preferences.d/chimera" ]; then
     rm "/etc/apt/preferences.d/chimera"
 fi
-
-ensureRepo http://apt.thebigboss.org/repofiles/cydia/ stable main BigBoss $sourcesDir/sileo.sources
-ensurePlainRepo https://repo.chariz.com/ Chariz $sourcesDir/sileo.sources
-ensurePlainRepo https://repo.dynastic.co/ Dynastic $sourcesDir/sileo.sources
 
 if [ ! -f /etc/apt/sources.list.d/chimera.sources ] && [ ! -f /etc/apt/sources.list.d/electra.list ]; then
         ensurePlainRepo https://test.apt.bingner.com/ Elucubratus $sourcesDir/sileo-base.sources
